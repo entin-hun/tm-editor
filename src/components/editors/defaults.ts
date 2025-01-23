@@ -25,6 +25,8 @@ import {
   WaterImpact,
   FallbackFoodNutrient,
   Facility,
+  Priced,
+  ProductInstance,
 } from '@fairfooddata/types';
 
 export const defaultHr: Hr = {
@@ -156,6 +158,10 @@ export const defaultTransportedInputInstance: TransportedInputInstance = {
 
 export const defaultProductInstance = defaultFoodInstance;
 
+export const defaultPricedProductInstance: Priced<ProductInstance> = {
+  ...defaultProductInstance,
+  ...{ price: defaultPrice },
+};
 export const defaultCartridgeInstance: CartridgeInstance = {
   bio: false,
   category: 'cartridge',
@@ -185,7 +191,7 @@ export const defaultPokedex: Pokedex = {
   feedchainVersion: '',
   token: '',
 
-  instance: defaultProductInstance,
+  instance: defaultPricedProductInstance,
 
   // instance: {
   //   category: 'food',

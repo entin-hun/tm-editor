@@ -367,7 +367,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@fairfooddata/tm-editor@workspace:."
   dependencies:
-    "@fairfooddata/types": "npm:0.0.6"
+    "@fairfooddata/types": "npm:0.0.7"
     "@quasar/app-vite": "npm:^1.3.0"
     "@quasar/extras": "npm:^1.16.4"
     "@types/node": "npm:^12.20.21"
@@ -393,10 +393,10 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@fairfooddata/types@npm:0.0.6":
-  version: 0.0.6
-  resolution: "@fairfooddata/types@npm:0.0.6"
-  checksum: 10c0/7f36ba1a71ba02a6179ed4bbb2765b00c4d69b6aa58de5b66d38a586e617afa7772e50aed89c9600106ae098650f56e613629289bdd84e407801717997cb7e29
+"@fairfooddata/types@npm:0.0.7":
+  version: 0.0.7
+  resolution: "@fairfooddata/types@npm:0.0.7"
+  checksum: 10c0/af69ba301b9510b9ee27f7744df0aed3af3c6ba531c8d67682d93368cbdd3bbe46407a4f4e6e76fa02be9a43ef973de33f54ddc18df43c336dafa6c09159795f
   languageName: node
   linkType: hard
 

@@ -50,7 +50,6 @@
         </div>
       </q-expansion-item>
     </q-card>
-    <PriceEditor v-model="value.price" label="price" />
   </div>
 </template>
 
@@ -67,7 +66,6 @@ import FreezeDryingProcessEditor from './processes/FreezeDryingProcessEditor.vue
 import BlendingProcessEditor from './processes/BlendingProcessEditor.vue';
 import HarvestProcessEditor from './processes/HarvestProcessEditor.vue';
 
-import PriceEditor from './PriceEditor.vue';
 import FallbackFoodNutrientArrayEditor from './FallbackFoodNutrientArrayEditor.vue';
 
 import {

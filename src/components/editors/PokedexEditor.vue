@@ -13,7 +13,7 @@
         default-value=""
       />
       <BasicInput v-model="value.token" label="token" default-value="" />
-      <ProductInstanceEditor v-model="value.instance" label="instance" />
+      <ProductInstanceEditor v-model="value.instance" label="instance" priced />
     </div>
   </q-card>
 </template>
