@@ -8,6 +8,7 @@
     default-value=""
   />
   <ProductInstanceEditor
+    :priced="false"
     v-model="value.instance"
     label="instance"
     v-else-if="
@@ -43,7 +44,7 @@ watch(value, (newValue) => {
 watch(type, (newValue) => {
   switch (newValue) {
     case 'hash':
-      value.value.instance = '';
+      value.value.instance = '0x0';
       break;
     case 'json':
       value.value.instance = clone(defaultFoodInstance);
