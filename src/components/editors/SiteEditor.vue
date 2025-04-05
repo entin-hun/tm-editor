@@ -14,12 +14,12 @@
 </template>
 
 <script setup lang="ts">
-import { Facility } from '@fairfooddata/types';
+import { Site } from '@fairfooddata/types';
 import { ref, watch } from 'vue';
 import BasicInput from './BasicInput.vue';
 import LocationEditor from './LocationEditor.vue';
 
-const props = defineProps<{ modelValue: Facility; label: string }>();
+const props = defineProps<{ modelValue: Site; label: string }>();
 
 const value = ref(props.modelValue);
 

@@ -24,7 +24,7 @@ import {
   CarbonImpact,
   WaterImpact,
   FallbackFoodNutrient,
-  Facility,
+  Site,
   Priced,
   ProductInstance,
 } from '@fairfooddata/types';
@@ -67,14 +67,14 @@ export const defaultTemperatureRange: TemperatureRange = {
   max: 100,
 };
 
-export const defaultFacility: Facility = {
+export const defaultSite: Site = {
   label: undefined,
   location: defaultLocation,
 };
 
 export const defaultGenericProcess: GenericProcess = {
   timestamp: new Date().getTime(),
-  facility: defaultFacility,
+  site: defaultSite,
   temperatureRange: defaultTemperatureRange,
   inputInstances: [],
   price: undefined,
@@ -133,7 +133,8 @@ export const defaultFoodInstance: FoodInstance = {
 };
 
 export const defaultGenericInputInstance: GenericInputInstance = {
-  instance: '',
+  priceShare: 1,
+  instance: '0x0',
   quantity: 1,
 };
 

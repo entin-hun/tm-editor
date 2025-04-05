@@ -26,7 +26,7 @@
     "vue-router": "^4.0.0"
   },
   "devDependencies": {
-    "@fairfooddata/types": "0.0.7",
+    "@fairfooddata/types": "0.0.9",
     "@quasar/app-vite": "^1.3.0",
     "@types/node": "^12.20.21",
     "@typescript-eslint/eslint-plugin": "^5.10.0",

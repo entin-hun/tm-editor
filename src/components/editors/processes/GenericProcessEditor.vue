@@ -1,7 +1,7 @@
 <template>
   <TimestampInput v-model="value.timestamp" label="timestamp" />
   <BasicInput v-model.number="value.duration" label="duration" type="number" />
-  <FacilityEditor v-model="value.facility" label="facility" />
+  <SiteEditor v-model="value.site" label="site" />
   <TemperatureRangeEditor
     v-model="value.temperatureRange"
     label="temperatureRange"
@@ -24,7 +24,7 @@ import TemperatureRangeEditor from '../TemperatureRangeEditor.vue';
 import InputInstanceArrayEditor from '../InputInstanceArrayEditor.vue';
 import PriceEditor from '../PriceEditor.vue';
 import ImpactArrayEditor from '../impacts/ImpactArrayEditor.vue';
-import FacilityEditor from '../FacilityEditor.vue';
+import SiteEditor from '../SiteEditor.vue';
 
 const props = defineProps<{ modelValue: GenericProcess }>();
 
