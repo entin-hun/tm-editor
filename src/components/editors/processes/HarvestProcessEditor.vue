@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { HarvestProcess } from '@fairfooddata/types';
+import { HarvestProcess } from '@trace.market/types';
 import GenericProcessEditor from './GenericProcessEditor.vue';
 
 import { ref, watch } from 'vue';

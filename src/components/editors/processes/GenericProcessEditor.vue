@@ -15,9 +15,8 @@
 </template>
 
 <script setup lang="ts">
-import { GenericProcess } from '@fairfooddata/types';
+import { GenericProcess } from '@trace.market/types';
 import { ref, watch } from 'vue';
-
 import TimestampInput from '../TimestampInput.vue';
 import BasicInput from '../BasicInput.vue';
 import TemperatureRangeEditor from '../TemperatureRangeEditor.vue';
@@ -26,11 +25,32 @@ import PriceEditor from '../PriceEditor.vue';
 import ImpactArrayEditor from '../impacts/ImpactArrayEditor.vue';
 import SiteEditor from '../SiteEditor.vue';
 
-const props = defineProps<{ modelValue: GenericProcess }>();
-
-const value = ref(props.modelValue);
-
+const props = defineProps<{ modelValue: GenericProcess | undefined }>();
 const emit = defineEmits(['update:modelValue']);
 
-watch(value, (newValue) => emit('update:modelValue', newValue));
+// Initialize with props.modelValue
+const value = ref(props.modelValue);
+
+// Watch for external updates (e.g. from parent/AI)
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    console.log(
+      '[GenericProcessEditor] props.modelValue updated',
+      newVal?.inputInstances?.length
+    );
+    if (newVal !== value.value) {
+      value.value = newVal;
+    }
+  }
+);
+
+// Emit deep changes so parent stays in sync
+watch(
+  value,
+  (newValue) => {
+    emit('update:modelValue', newValue);
+  },
+  { deep: true }
+);
 </script>

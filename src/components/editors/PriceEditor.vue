@@ -1,24 +1,24 @@
 <template>
-  <q-card class="q-mt-md">
+  <q-card class="q-mt-md" dark>
     <q-expansion-item :label="$props.label" default-opened>
       <div class="q-pa-md row">
         <div class="col q-pr-sm">
           <BasicInput
-            v-model.number="amount"
+            v-model.number="value.amount"
             label="amount"
-            :default-value="undefined"
+            :default-value="0"
             type="number"
           />
         </div>
         <div class="col q-px-sm">
           <BasicInput
-            v-model="currency"
+            v-model="value.currency"
             label="currency"
-            :default-value="undefined"
+            :default-value="''"
           />
         </div>
         <div class="col q-pl-sm">
-          <q-select v-model="type" label="type" :options="typeOptions" />
+          <q-select v-model="value.type" label="type" :options="typeOptions" />
         </div>
       </div>
     </q-expansion-item>
@@ -26,61 +26,53 @@
 </template>
 
 <script setup lang="ts">
-import { Price } from '@fairfooddata/types';
+import { Price } from '@trace.market/types';
 import { ref, watch } from 'vue';
 import BasicInput from './BasicInput.vue';
 
 const props = defineProps<{
   modelValue: Price | undefined;
   label: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  defaultValue?: any;
+  defaultValue?: Price | undefined;
 }>();
 
-const amount = ref(props.modelValue?.amount);
-const currency = ref(props.modelValue?.currency);
-const type = ref(props.modelValue?.type);
+const typeOptions = ['budget', 'is', '%', 'payin30days', 'payin60days'];
+
+const value = ref<Price>(
+  props.modelValue ??
+    props.defaultValue ?? {
+      amount: 0,
+      currency: '',
+      type: 'budget',
+    }
+);
 
 const emit = defineEmits(['update:modelValue']);
 
-watch(amount, (newValue) => {
-  emit(
-    'update:modelValue',
-    newValue !== undefined &&
-      newValue !== 0 &&
-      currency.value !== undefined &&
-      currency.value !== '' &&
-      type.value !== undefined
-      ? { amount: newValue, currency: currency.value, type: type.value }
-      : props.defaultValue
-  );
-});
+const internalUpdate = ref(false);
 
-watch(currency, (newValue) => {
-  emit(
-    'update:modelValue',
-    newValue !== undefined &&
-      newValue !== '' &&
-      amount.value !== undefined &&
-      amount.value !== 0 &&
-      type.value !== undefined
-      ? { amount: amount.value, currency: newValue, type: type.value }
-      : props.defaultValue
-  );
-});
+// Emit deep changes so parent stays in sync without dropping object when partial
+watch(
+  value,
+  (newValue) => {
+    if (internalUpdate.value) return;
+    emit('update:modelValue', { ...newValue });
+  },
+  { deep: true }
+);
 
-watch(type, (newValue) => {
-  emit(
-    'update:modelValue',
-    newValue !== undefined &&
-      newValue !== undefined &&
-      amount.value !== undefined &&
-      amount.value !== 0 &&
-      currency.value !== ''
-      ? { amount: amount.value, currency: currency.value, type: newValue }
-      : props.defaultValue
-  );
-});
-
-const typeOptions = ['budget', 'is', '%', 'payin30days', 'payin60days'];
+// Sync internal state when parent replaces price (e.g., JSON edits)
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (newVal && newVal !== value.value) {
+      internalUpdate.value = true;
+      value.value = { ...newVal };
+      // allow next tick before emitting again
+      setTimeout(() => {
+        internalUpdate.value = false;
+      }, 0);
+    }
+  }
+);
 </script>

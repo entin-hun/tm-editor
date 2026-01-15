@@ -1,5 +1,5 @@
 <template>
-  <q-card class="q-my-md">
+  <q-card class="q-my-md" dark>
     <q-expansion-item :label="$props.label" default-opened>
       <div class="q-pa-md">
         <BasicInput
@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { MachineInstance } from '@fairfooddata/types';
+import { MachineInstance } from '@trace.market/types';
 import BasicInput from './BasicInput.vue';
 import { clone, defaultMachineInstance } from './defaults';
 import { ref, watch } from 'vue';
@@ -41,8 +41,29 @@ const props = defineProps<{
 const value = ref(props.modelValue ?? clone(defaultMachineInstance));
 
 const emit = defineEmits(['update:modelValue']);
+const internalUpdate = ref(false);
 
-watch(value, (newValue) => {
-  emit('update:modelValue', newValue);
-});
+// Emit deep changes so parent stays in sync
+watch(
+  value,
+  (newValue) => {
+    if (internalUpdate.value) return;
+    emit('update:modelValue', newValue);
+  },
+  { deep: true }
+);
+
+// Update internal state when parent replaces the object (e.g., JSON editor)
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (newVal && JSON.stringify(newVal) !== JSON.stringify(value.value)) {
+      internalUpdate.value = true;
+      value.value = newVal;
+      setTimeout(() => {
+        internalUpdate.value = false;
+      }, 0);
+    }
+  }
+);
 </script>

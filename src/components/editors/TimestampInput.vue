@@ -3,7 +3,7 @@
     <template v-slot:append>
       <q-icon name="access_time" class="cursor-pointer">
         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-          <q-card>
+          <q-card dark>
             <div class="row">
               <q-date v-model="date" mask="YYYY-MM-DD" flat square />
               <q-time flat v-model="time" mask="HH:mm" format24h square />

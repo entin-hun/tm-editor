@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { PrintingProcess } from '@fairfooddata/types';
+import { PrintingProcess } from '@trace.market/types';
 import GenericProcessEditor from './GenericProcessEditor.vue';
 import BasicInput from '../BasicInput.vue';
 import KnowHowEditor from '../KnowHowEditor.vue';

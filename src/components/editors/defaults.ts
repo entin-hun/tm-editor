@@ -27,7 +27,7 @@ import {
   Site,
   Priced,
   ProductInstance,
-} from '@fairfooddata/types';
+} from '@trace.market/types';
 
 export const defaultHr: Hr = {
   tasks: '',

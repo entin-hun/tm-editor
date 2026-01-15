@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { ID } from '@fairfooddata/types';
+import { ID } from '@trace.market/types';
 import { ref, watch } from 'vue';
 import BasicInput from './BasicInput.vue';
 

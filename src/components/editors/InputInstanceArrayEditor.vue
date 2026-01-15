@@ -1,9 +1,9 @@
 <template>
-  <q-card class="q-mt-md">
+  <q-card class="q-mt-md" dark>
     <q-expansion-item :label="label" default-opened>
       <div class="q-pa-md">
-        <template v-for="(item, index) in array" :key="item">
-          <q-card class="row q-pa-md q-mb-md">
+        <template v-for="(item, index) in array" :key="index">
+          <q-card class="row q-pa-md q-mb-md" dark>
             <div class="col">
               <InputInstanceEditor :value="item" />
             </div>
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { InputInstance } from '@fairfooddata/types';
+import { InputInstance } from '@trace.market/types';
 import { computed, ref, watch } from 'vue';
 import {
   clone,
@@ -57,13 +57,32 @@ import InputInstanceEditor from './InputInstanceEditor.vue';
 
 const props = defineProps<{ modelValue: InputInstance[]; label: string }>();
 
-const array = ref(props.modelValue);
+const array = ref<InputInstance[]>(props.modelValue ?? []);
 
 const emit = defineEmits(['update:modelValue']);
 
-watch(array, (newValue) => {
-  emit('update:modelValue', newValue);
-});
+// Emit deep changes so parent stays in sync
+watch(
+  array,
+  (newValue) => {
+    emit('update:modelValue', newValue);
+  },
+  { deep: true }
+);
+
+// Update internal state when parent replaces the array (e.g., JSON editor)
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    console.log(
+      '[InputInstanceArrayEditor] props.modelValue updated, length:',
+      newVal?.length
+    );
+    if (newVal !== array.value) {
+      array.value = newVal ?? [];
+    }
+  }
+);
 
 const label = computed(() => `${props.label} (${array.value?.length ?? 0})`);
 </script>

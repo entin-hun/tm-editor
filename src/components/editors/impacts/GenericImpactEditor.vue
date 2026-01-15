@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { GenericImpact } from '@fairfooddata/types';
+import { GenericImpact } from '@trace.market/types';
 import BasicInput from '../BasicInput.vue';
 import { ref, watch } from 'vue';
 

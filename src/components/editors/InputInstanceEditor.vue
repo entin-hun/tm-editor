@@ -8,13 +8,23 @@
 </template>
 
 <script setup lang="ts">
-import { InputInstance } from '@fairfooddata/types';
+import { InputInstance } from '@trace.market/types';
 import LocalInputInstanceEditor from './LocalInputInstanceEditor.vue';
 import TransportedInputInstanceEditor from './TransportedInputInstanceEditor.vue';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import BasicInput from './BasicInput.vue';
 
 const props = defineProps<{ value: InputInstance }>();
+const emit = defineEmits(['update:modelValue']);
 
 const value = ref(props.value);
+
+watch(
+  () => props.value,
+  (newVal) => {
+    if (newVal !== value.value) {
+      value.value = newVal;
+    }
+  }
+);
 </script>

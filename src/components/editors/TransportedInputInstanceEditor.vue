@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { TransportedInputInstance } from '@fairfooddata/types';
+import { TransportedInputInstance } from '@trace.market/types';
 import { ref, watch } from 'vue';
 import { clone, defaultTransportedInputInstance } from './defaults';
 import TransportEditor from './TransportEditor.vue';
@@ -18,7 +18,22 @@ const value = ref(props.modelValue ?? clone(defaultTransportedInputInstance));
 
 const emit = defineEmits(['update:modelValue']);
 
-watch(value, (newValue) => {
-  emit('update:modelValue', newValue);
-});
+// Emit deep changes so parent stays in sync
+watch(
+  value,
+  (newValue) => {
+    emit('update:modelValue', newValue);
+  },
+  { deep: true }
+);
+
+// Update internal state when parent replaces the object (e.g., JSON editor)
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (newVal !== value.value) {
+      value.value = newVal ?? clone(defaultTransportedInputInstance);
+    }
+  }
+);
 </script>

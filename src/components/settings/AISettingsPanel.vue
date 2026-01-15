@@ -1,0 +1,344 @@
+<template>
+  <q-card class="ai-settings-panel">
+    <q-card-section>
+      <div class="text-h6">AI Semantic Search</div>
+      <div class="text-caption text-grey-7">
+        Enable AI-powered semantic similarity search for better product matching
+      </div>
+    </q-card-section>
+
+    <q-separator />
+
+    <q-card-section>
+      <q-toggle
+        v-model="enabled"
+        label="Enable AI Semantic Search"
+        color="primary"
+        @update:model-value="handleEnabledChange"
+      />
+
+      <q-banner v-if="enabled" class="bg-info text-white q-mt-md" rounded dense>
+        <template v-slot:avatar>
+          <q-icon name="info" color="white" />
+        </template>
+        AI search re-ranks results by semantic meaning, not just keywords.
+        Configure your AI provider below.
+      </q-banner>
+    </q-card-section>
+
+    <q-separator v-if="enabled" />
+
+    <q-card-section v-if="enabled">
+      <q-select
+        v-model="provider"
+        :options="providerOptions"
+        label="AI Provider"
+        filled
+        emit-value
+        map-options
+        @update:model-value="handleProviderChange"
+      >
+        <template v-slot:prepend>
+          <q-icon name="cloud" />
+        </template>
+      </q-select>
+
+      <q-input
+        v-model="apiKey"
+        label="API Key"
+        filled
+        :type="showApiKey ? 'text' : 'password'"
+        class="q-mt-md"
+        hint="Your API key is stored locally and never sent to our servers"
+      >
+        <template v-slot:prepend>
+          <q-icon name="key" />
+        </template>
+        <template v-slot:append>
+          <q-icon
+            :name="showApiKey ? 'visibility_off' : 'visibility'"
+            class="cursor-pointer"
+            @click="showApiKey = !showApiKey"
+          />
+        </template>
+      </q-input>
+
+      <q-select
+        v-model="model"
+        :options="availableModels"
+        label="Model"
+        filled
+        option-label="displayName"
+        option-value="name"
+        emit-value
+        map-options
+        class="q-mt-md"
+      >
+        <template v-slot:prepend>
+          <q-icon name="psychology" />
+        </template>
+        <template v-slot:option="scope">
+          <q-item v-bind="scope.itemProps">
+            <q-item-section>
+              <q-item-label>{{ scope.opt.displayName }}</q-item-label>
+              <q-item-label caption>{{ scope.opt.cost }}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </template>
+      </q-select>
+    </q-card-section>
+
+    <q-separator v-if="enabled" />
+
+    <q-card-actions v-if="enabled" align="right">
+      <q-btn
+        flat
+        label="Test Connection"
+        color="primary"
+        icon="check_circle"
+        :loading="testing"
+        :disable="!canTest"
+        @click="testConnection"
+      />
+      <q-btn
+        flat
+        label="Save"
+        color="primary"
+        icon="save"
+        :disable="!canSave"
+        @click="saveConfig"
+      />
+      <q-btn
+        flat
+        label="Clear Cache"
+        color="warning"
+        icon="delete_sweep"
+        @click="clearCache"
+      />
+    </q-card-actions>
+
+    <q-card-section v-if="lastValidated">
+      <q-banner
+        :class="validationSuccess ? 'bg-positive' : 'bg-negative'"
+        class="text-white"
+        rounded
+        dense
+      >
+        <template v-slot:avatar>
+          <q-icon
+            :name="validationSuccess ? 'check_circle' : 'error'"
+            color="white"
+          />
+        </template>
+        <div v-if="validationSuccess">
+          API key validated successfully on {{ formatDate(lastValidated) }}
+        </div>
+        <div v-else>Validation failed: {{ lastError || 'Unknown error' }}</div>
+      </q-banner>
+    </q-card-section>
+  </q-card>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import type { AIProvider, AIModel } from '../../types/ai';
+import { AI_MODELS, DEFAULT_MODELS } from '../../config/aiConfig';
+import { aiConfigStorage } from '../../services/ai/AIConfigStorage';
+import { semanticSearchEngine } from '../../services/SemanticSearchEngine';
+import { useQuasar } from 'quasar';
+
+const $q = useQuasar();
+
+// State
+const enabled = ref(false);
+const provider = ref<AIProvider>('gemini');
+const apiKey = ref('');
+const model = ref('');
+const showApiKey = ref(false);
+const testing = ref(false);
+const lastValidated = ref<string | undefined>();
+const lastError = ref<string | undefined>();
+
+// Load config on mount
+onMounted(() => {
+  const config = aiConfigStorage.getConfig();
+  if (config) {
+    enabled.value = config.enabled;
+    provider.value = config.provider;
+    apiKey.value = config.apiKey || '';
+    model.value = config.model;
+    // Only surface validation info if it was actually validated
+    lastValidated.value = config.validated ? config.lastValidated : undefined;
+    lastError.value = config.validated ? config.lastError : undefined;
+  } else {
+    // Set defaults
+    model.value = DEFAULT_MODELS[provider.value];
+  }
+});
+
+// Provider options
+const providerOptions = [
+  { label: 'Gemini (Recommended)', value: 'gemini', icon: 'auto_awesome' },
+  { label: 'OpenRouter', value: 'openrouter', icon: 'hub' },
+  { label: 'Groq', value: 'groq', icon: 'speed' },
+];
+
+// Available models for selected provider
+const availableModels = computed(() => {
+  return AI_MODELS[provider.value].map((m: AIModel) => ({
+    ...m,
+    value: m.name,
+    label: m.displayName,
+  }));
+});
+
+// Validation
+const canTest = computed(() => {
+  return (
+    enabled.value && apiKey.value.trim().length > 0 && model.value.length > 0
+  );
+});
+
+const canSave = computed(() => {
+  return canTest.value;
+});
+
+const validationSuccess = computed(() => {
+  return enabled.value && lastValidated.value !== undefined && !lastError.value;
+});
+
+// Handlers
+function handleEnabledChange(value: boolean) {
+  if (!value) {
+    // Disable AI search
+    aiConfigStorage.clearConfig();
+    lastValidated.value = undefined;
+    lastError.value = undefined;
+    $q.notify({
+      type: 'info',
+      message: 'AI semantic search disabled',
+      position: 'top',
+    });
+  }
+}
+
+function handleProviderChange(value: AIProvider) {
+  // Reset model to default for new provider
+  model.value = DEFAULT_MODELS[value];
+  lastValidated.value = undefined;
+  lastError.value = undefined;
+}
+
+async function testConnection() {
+  if (!canTest.value) return;
+
+  testing.value = true;
+  lastError.value = undefined;
+
+  try {
+    // Save config temporarily
+    const config = aiConfigStorage.createDefaultConfig(
+      provider.value,
+      apiKey.value
+    );
+    config.model = model.value;
+    aiConfigStorage.saveConfig(config);
+
+    // Validate
+    const isValid = await semanticSearchEngine.validateConfig();
+
+    // Persist validation result
+    if (!isValid && !lastError.value) {
+      lastError.value = 'Validation failed';
+    }
+    aiConfigStorage.markValidated(isValid, lastError.value);
+
+    // Reload config to get validation status
+    const updatedConfig = aiConfigStorage.getConfig();
+    if (updatedConfig) {
+      lastValidated.value = updatedConfig.lastValidated;
+      lastError.value = updatedConfig.lastError;
+    }
+
+    if (isValid) {
+      $q.notify({
+        type: 'positive',
+        message: 'API key validated successfully!',
+        position: 'top',
+      });
+    } else {
+      $q.notify({
+        type: 'negative',
+        message: `Validation failed: ${lastError.value || 'Unknown error'}`,
+        position: 'top',
+      });
+    }
+  } catch (error) {
+    console.error('Test connection failed:', error);
+    lastError.value = error instanceof Error ? error.message : 'Unknown error';
+    $q.notify({
+      type: 'negative',
+      message: `Test failed: ${lastError.value}`,
+      position: 'top',
+    });
+  } finally {
+    window.dispatchEvent(new CustomEvent('ai-config-updated'));
+    testing.value = false;
+  }
+}
+
+function saveConfig() {
+  if (!canSave.value) return;
+
+  try {
+    const config = aiConfigStorage.createDefaultConfig(
+      provider.value,
+      apiKey.value
+    );
+    config.model = model.value;
+    config.enabled = enabled.value;
+    aiConfigStorage.saveConfig(config);
+
+    $q.notify({
+      type: 'positive',
+      message: 'AI configuration saved',
+      position: 'top',
+    });
+  } catch (error) {
+    console.error('Save config failed:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to save configuration',
+      position: 'top',
+    });
+  }
+}
+
+async function clearCache() {
+  try {
+    await semanticSearchEngine.clearCache();
+    $q.notify({
+      type: 'positive',
+      message: 'Embedding cache cleared',
+      position: 'top',
+    });
+  } catch (error) {
+    console.error('Clear cache failed:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to clear cache',
+      position: 'top',
+    });
+  }
+}
+
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleString();
+}
+</script>
+
+<style scoped>
+.ai-settings-panel {
+  max-width: 600px;
+}
+</style>

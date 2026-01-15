@@ -7,7 +7,7 @@
 
 <script setup lang="ts">
 import BasicInput from '../BasicInput.vue';
-import { Impact } from '@fairfooddata/types';
+import { Impact } from '@trace.market/types';
 import CarbonImpactEditor from './CarbonImpactEditor.vue';
 import WaterImpactEditor from './WaterImpactEditor.vue';
 import { ref } from 'vue';

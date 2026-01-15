@@ -1,50 +1,8 @@
 <template>
   <q-layout view="hHh lpR fFf">
-    <q-header elevated class="bg-primary text-white">
+    <q-header elevated class="bg-primary text-white" style="display: none">
       <q-toolbar>
-        <q-toolbar-title> Fair Food Data NFT Editor </q-toolbar-title>
-        <div v-if="accountStore.account !== undefined">
-          <q-btn-dropdown flat rounded>
-            <template v-slot:label>
-              <span
-                style="
-                  max-width: 12em;
-                  text-overflow: ellipsis;
-                  overflow: hidden;
-                "
-              >
-                {{ accountStore.account.address }}
-              </span>
-            </template>
-            <div class="q-pa-md column">
-              <div class="row col items-center q-mb-md">
-                <q-input
-                  :model-value="accountStore.account.address"
-                  readonly
-                  dense
-                />
-                <q-btn
-                  round
-                  flat
-                  size="10px"
-                  icon="content_copy"
-                  @click="
-                    accountStore.account?.address &&
-                      copyToClipboard(accountStore.account.address)
-                  "
-                  class="q-ml-sm"
-                />
-              </div>
-              <q-btn
-                label="Disconnect Wallet"
-                flat
-                rounded
-                @click="walletDisconnect.execute()"
-                v-close-popup
-              />
-            </div>
-          </q-btn-dropdown>
-        </div>
+        <q-toolbar-title> Supply Chain NFT Editor </q-toolbar-title>
       </q-toolbar>
     </q-header>
 

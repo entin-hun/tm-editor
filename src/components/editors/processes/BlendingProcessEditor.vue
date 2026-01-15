@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { BlendingProcess } from '@fairfooddata/types';
+import { BlendingProcess } from '@trace.market/types';
 import GenericProcessEditor from './GenericProcessEditor.vue';
 import KnowHowEditor from '../KnowHowEditor.vue';
 import MachineInstanceEditor from '../MachineInstanceEditor.vue';
@@ -22,7 +22,24 @@ const value = ref(props.modelValue ?? clone(defaultBlendingProcess));
 
 const emit = defineEmits(['update:modelValue']);
 
-watch(value, (newValue) => {
-  emit('update:modelValue', newValue);
-});
+// Emit deep changes so parent stays in sync
+watch(
+  value,
+  (newValue) => {
+    emit('update:modelValue', newValue);
+  },
+  { deep: true }
+);
+
+// Update internal state when parent replaces the object (e.g., JSON editor)
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    console.log('[BlendingProcessEditor] props.modelValue changed');
+    if (newVal !== value.value) {
+      console.log('[BlendingProcessEditor] Updating internal value ref');
+      value.value = newVal ?? clone(defaultBlendingProcess);
+    }
+  }
+);
 </script>

@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-import { FreezeDryingProcess } from '@fairfooddata/types';
+import { FreezeDryingProcess } from '@trace.market/types';
 import GenericProcessEditor from './GenericProcessEditor.vue';
 import KnowHowEditor from '../KnowHowEditor.vue';
 import MachineInstanceEditor from '../MachineInstanceEditor.vue';

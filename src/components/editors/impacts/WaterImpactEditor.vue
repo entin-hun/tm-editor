@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { WaterImpact } from '@fairfooddata/types';
+import { WaterImpact } from '@trace.market/types';
 import GenericImpactEditor from './GenericImpactEditor.vue';
 import { ref } from 'vue';
 

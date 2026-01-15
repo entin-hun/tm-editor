@@ -1,5 +1,5 @@
 <template>
-  <q-card class="q-my-md">
+  <q-card class="q-my-md" dark>
     <q-expansion-item :label="$props.label" default-opened>
       <div class="q-pa-md">
         <GenericProcessEditor v-model="value" />
@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { SaleProcess } from '@fairfooddata/types';
+import { SaleProcess } from '@trace.market/types';
 import GenericProcessEditor from './GenericProcessEditor.vue';
 import { ref, watch } from 'vue';
 import { clone, defaultSaleProcess } from '../defaults';

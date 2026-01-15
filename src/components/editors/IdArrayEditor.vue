@@ -1,10 +1,10 @@
 <template>
-  <q-card class="q-mt-md">
+  <q-card class="q-mt-md" dark>
     <q-expansion-item :label="label" default-opened>
       <div class="q-pa-md">
         <div v-if="array !== undefined">
           <template v-for="(item, index) in array" :key="item">
-            <q-card class="row q-pa-md q-mb-md">
+            <q-card class="row q-pa-md q-mb-md" dark>
               <div class="col">
                 <IdEditor v-model="array[index]" />
               </div>
@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { ID } from '@fairfooddata/types';
+import { ID } from '@trace.market/types';
 import { Ref, computed, ref, watch } from 'vue';
 import { clone, defaultId } from './defaults';
 import IdEditor from './IdEditor.vue';

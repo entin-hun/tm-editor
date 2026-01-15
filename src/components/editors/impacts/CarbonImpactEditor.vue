@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-import { CarbonImpact } from '@fairfooddata/types';
+import { CarbonImpact } from '@trace.market/types';
 import GenericImpactEditor from './GenericImpactEditor.vue';
 import { ref } from 'vue';
 

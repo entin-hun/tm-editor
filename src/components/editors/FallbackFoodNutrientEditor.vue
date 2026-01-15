@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { FallbackFoodNutrient } from '@fairfooddata/types';
+import { FallbackFoodNutrient } from '@trace.market/types';
 import { ref, watch } from 'vue';
 import BasicInput from './BasicInput.vue';
 import IdEditor from './IdEditor.vue';
