@@ -1,6 +1,6 @@
-# Fair Food Data Editor (@fairfooddata/editor)
+# Trace.Market Editor (@fairfooddata/editor)
 
-Edit NFTs for use with Fair Food Data
+Edit NFTs for use with Trace.Market
 
 ## Features
 

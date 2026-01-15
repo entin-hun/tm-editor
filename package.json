@@ -1,8 +1,8 @@
 {
   "name": "@fairfooddata/tm-editor",
   "version": "0.1.0",
-  "description": "Edit NFTs for use with Fair Food Data",
-  "productName": "Fair Food Data Editor",
+  "description": "Edit NFTs for use with Trace.Market",
+  "productName": "Trace.Market Editor",
   "author": "Szabolcs Szekelyi <szabi@aura-labs.cc>",
   "private": true,
   "license": "UNLICENSED",
