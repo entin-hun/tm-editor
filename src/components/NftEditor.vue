@@ -9,12 +9,16 @@
       <template #after>
         <div class="row no-wrap" style="height: 100vh">
           <div class="column" style="flex: 1; min-width: 0; height: 100%">
-            <div class="row q-pa-md items-center" style="flex-shrink: 0">
+            <div class="row q-pa-md items-center wrap" style="flex-shrink: 0">
               <q-btn-dropdown
                 ref="walletDropdownRef"
                 flat
                 rounded
-                :class="accountStore.account === undefined ? 'col q-pr-md' : ''"
+                :class="
+                  accountStore.account === undefined
+                    ? 'col-12 col-sm q-pr-md'
+                    : ''
+                "
               >
                 <template v-slot:label>
                   <span
@@ -82,7 +86,7 @@
                 v-if="accountStore.account !== undefined"
                 label="to"
                 v-model="to"
-                class="col q-pr-md"
+                class="col-12 col-sm q-pr-md"
               />
               <q-btn
                 label="mint"
