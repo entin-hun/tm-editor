@@ -10,25 +10,6 @@
     <q-separator />
 
     <q-card-section>
-      <q-toggle
-        v-model="enabled"
-        label="Enable AI Semantic Search"
-        color="primary"
-        @update:model-value="handleEnabledChange"
-      />
-
-      <q-banner v-if="enabled" class="bg-info text-white q-mt-md" rounded dense>
-        <template v-slot:avatar>
-          <q-icon name="info" color="white" />
-        </template>
-        AI search re-ranks results by semantic meaning, not just keywords.
-        Configure your AI provider below.
-      </q-banner>
-    </q-card-section>
-
-    <q-separator v-if="enabled" />
-
-    <q-card-section v-if="enabled">
       <q-select
         v-model="provider"
         :options="providerOptions"
@@ -63,6 +44,7 @@
         </template>
       </q-input>
 
+      <!-- Model selector hidden for now, may be needed later
       <q-select
         v-model="model"
         :options="availableModels"
@@ -86,11 +68,12 @@
           </q-item>
         </template>
       </q-select>
+      -->
     </q-card-section>
 
-    <q-separator v-if="enabled" />
+    <q-separator v-if="apiKey.trim().length > 0" />
 
-    <q-card-actions v-if="enabled" align="right">
+    <q-card-actions v-if="apiKey.trim().length > 0" align="right">
       <q-btn
         flat
         label="Test Connection"
@@ -163,7 +146,7 @@ const lastError = ref<string | undefined>();
 onMounted(() => {
   const config = aiConfigStorage.getConfig();
   if (config) {
-    enabled.value = config.enabled;
+    enabled.value = true; // Always enabled
     provider.value = config.provider;
     apiKey.value = config.apiKey || '';
     model.value = config.model;
@@ -172,6 +155,7 @@ onMounted(() => {
     lastError.value = config.validated ? config.lastError : undefined;
   } else {
     // Set defaults
+    enabled.value = true; // Always enabled
     model.value = DEFAULT_MODELS[provider.value];
   }
 });
@@ -195,7 +179,7 @@ const availableModels = computed(() => {
 // Validation
 const canTest = computed(() => {
   return (
-    enabled.value && apiKey.value.trim().length > 0 && model.value.length > 0
+    apiKey.value.trim().length > 0 && model.value.length > 0
   );
 });
 
@@ -204,24 +188,10 @@ const canSave = computed(() => {
 });
 
 const validationSuccess = computed(() => {
-  return enabled.value && lastValidated.value !== undefined && !lastError.value;
+  return lastValidated.value !== undefined && !lastError.value;
 });
 
 // Handlers
-function handleEnabledChange(value: boolean) {
-  if (!value) {
-    // Disable AI search
-    aiConfigStorage.clearConfig();
-    lastValidated.value = undefined;
-    lastError.value = undefined;
-    $q.notify({
-      type: 'info',
-      message: 'AI semantic search disabled',
-      position: 'top',
-    });
-  }
-}
-
 function handleProviderChange(value: AIProvider) {
   // Reset model to default for new provider
   model.value = DEFAULT_MODELS[value];
@@ -296,7 +266,7 @@ function saveConfig() {
       apiKey.value
     );
     config.model = model.value;
-    config.enabled = enabled.value;
+    config.enabled = true; // Always enabled
     aiConfigStorage.saveConfig(config);
 
     $q.notify({

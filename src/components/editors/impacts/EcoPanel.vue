@@ -73,10 +73,10 @@
         <tr v-for="(item, idx) in displayBreakdown" :key="idx">
           <td class="text-left">
             {{ item.name }}
-            <q-icon 
-              v-if="item.warning" 
-              name="info" 
-              size="xs" 
+            <q-icon
+              v-if="item.warning"
+              name="info"
+              size="xs"
               class="q-ml-xs text-warning cursor-pointer"
             >
               <q-tooltip>{{ item.warning }}</q-tooltip>
@@ -118,18 +118,18 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
 import { Pokedex } from '@trace.market/types';
-import { estimateEco, estimateEcoWithAI, EcoImpactResult } from 'src/services/ecoService';
+import {
+  estimateEco,
+  estimateEcoWithAI,
+  EcoImpactResult,
+} from 'src/services/ecoService';
 import { calculateImpacts } from 'src/services/openLCAClient';
+import {
+  fetchNonFoodCarbon,
+  type NonFoodCarbonResponse,
+} from 'src/services/nonFoodService';
 
-const props = defineProps<{
-  pokedex: Pokedex;
-}>();
-
-const result = ref<EcoImpactResult>(estimateEco(props.pokedex));
-const loading = ref(false);
-const status = ref('');
-const apiUrl = ref('https://lca.trace.market/result/calculate');
-const apiBreakdown = ref<Array<{
+type ApiBreakdownRow = {
   name: string;
   impact: number;
   percentage: number;
@@ -138,8 +138,31 @@ const apiBreakdown = ref<Array<{
   warning?: string | null;
   impactMin: number | null;
   impactMax: number | null;
-}>>([]);
+};
+
+const props = defineProps<{
+  pokedex: Pokedex;
+}>();
+
+const FOOD_API_URL = 'https://lca.trace.market/result/calculate';
+const NON_FOOD_API_URL = 'https://add.trace.market/suggest/non-food';
+
+const result = ref<EcoImpactResult>(estimateEco(props.pokedex));
+const loading = ref(false);
+const status = ref('');
+const apiBreakdown = ref<ApiBreakdownRow[]>([]);
 // const tooltipStates = ref<Record<number, boolean>>({}); // Removed to restore default hover behavior
+
+const productCategory = computed(() => {
+  const category = (props.pokedex?.instance as any)?.category;
+  return typeof category === 'string' ? category.toLowerCase() : '';
+});
+
+const isFoodProduct = computed(() => productCategory.value === 'food');
+
+const apiUrl = computed(() =>
+  isFoodProduct.value ? FOOD_API_URL : NON_FOOD_API_URL
+);
 
 const badgeColor = computed(() => {
   switch (result.value.source) {
@@ -188,57 +211,14 @@ const displayBreakdown = computed(() => {
 
 async function requestApiEstimate() {
   loading.value = true;
-  status.value = 'Requesting carbon estimate from API...';
+  status.value = isFoodProduct.value
+    ? 'Requesting carbon estimate from API...'
+    : 'Requesting non-food carbon estimate...';
   try {
-    const apiResult = await calculateImpacts(props.pokedex);
-    if (apiResult?.success) {
-      console.log('[EcoPanel] OpenLCA API response:', apiResult.data);
-
-      const data = apiResult.data as any;
-      const totalCO2 = Number(data?.totalCO2 ?? 0);
-      const breakdownItems = Array.isArray(data?.breakdown) ? data.breakdown : [];
-      const breakdown = breakdownItems.map((item: any) => {
-        const impact = Number(item?.impact ?? 0);
-        return {
-          name: String(item?.name ?? 'Unknown'),
-          impact,
-          percentage: totalCO2 > 0 ? (impact / totalCO2) * 100 : 0,
-        };
-      });
-
-      // Infer source based on breakdown sources (AI vs database)
-      const hasAi = breakdownItems.some((item: any) => String(item?.source ?? '').toLowerCase().includes('ai'));
-      const source: EcoImpactResult['source'] = hasAi ? 'ai-estimated' : 'calculated';
-
-      const quantityKg = Number((props.pokedex?.instance as any)?.quantity ?? 0) / 1000;
-      const intensity = quantityKg > 0 ? totalCO2 / quantityKg : 0;
-
-      result.value = {
-        carbon: totalCO2,
-        intensity,
-        breakdown,
-        source,
-      };
-
-      apiBreakdown.value = breakdownItems.map((item: any) => {
-        const impact = Number(item?.impact ?? 0);
-        const impactMin = item?.impactMin !== undefined ? Number(item.impactMin) : null;
-        const impactMax = item?.impactMax !== undefined ? Number(item.impactMax) : null;
-        return {
-          name: String(item?.name ?? 'Unknown'),
-          impact,
-          percentage: totalCO2 > 0 ? (impact / totalCO2) * 100 : 0,
-          source: item?.source ?? null,
-          sourceUrl: item?.sourceUrl ?? null,
-          warning: item?.warning ?? null,
-          impactMin: Number.isFinite(impactMin as number) ? impactMin : null,
-          impactMax: Number.isFinite(impactMax as number) ? impactMax : null,
-        };
-      });
-
-      status.value = 'API response received';
-    } else if (apiResult?.error) {
-      status.value = `API error: ${apiResult.error}`;
+    if (isFoodProduct.value) {
+      await requestFoodApiEstimate();
+    } else {
+      await requestNonFoodApiEstimate();
     }
   } catch (e) {
     status.value = 'API request failed';
@@ -246,6 +226,193 @@ async function requestApiEstimate() {
   } finally {
     loading.value = false;
   }
+}
+
+async function requestFoodApiEstimate() {
+  const apiResult = await calculateImpacts(props.pokedex);
+  if (apiResult?.success) {
+    console.log('[EcoPanel] OpenLCA API response:', apiResult.data);
+
+    const data = apiResult.data as any;
+    const totalCO2 = Number(data?.totalCO2 ?? 0);
+    const breakdownItems = Array.isArray(data?.breakdown) ? data.breakdown : [];
+    const breakdown = breakdownItems.map((item: any) => {
+      const impact = Number(item?.impact ?? 0);
+      return {
+        name: String(item?.name ?? 'Unknown'),
+        impact,
+        percentage: totalCO2 > 0 ? (impact / totalCO2) * 100 : 0,
+      };
+    });
+
+    const hasAi = breakdownItems.some((item: any) =>
+      String(item?.source ?? '')
+        .toLowerCase()
+        .includes('ai')
+    );
+    const source: EcoImpactResult['source'] = hasAi
+      ? 'ai-estimated'
+      : 'calculated';
+
+    const quantityKg = getInstanceQuantityKg();
+    const intensity = quantityKg > 0 ? totalCO2 / quantityKg : 0;
+
+    result.value = {
+      carbon: totalCO2,
+      intensity,
+      breakdown,
+      source,
+    };
+
+    apiBreakdown.value = breakdownItems.map((item: any) => {
+      const impact = Number(item?.impact ?? 0);
+      const impactMin =
+        item?.impactMin !== undefined ? Number(item.impactMin) : null;
+      const impactMax =
+        item?.impactMax !== undefined ? Number(item.impactMax) : null;
+      return {
+        name: String(item?.name ?? 'Unknown'),
+        impact,
+        percentage: totalCO2 > 0 ? (impact / totalCO2) * 100 : 0,
+        source: item?.source ?? null,
+        sourceUrl: item?.sourceUrl ?? null,
+        warning: item?.warning ?? null,
+        impactMin: Number.isFinite(impactMin as number) ? impactMin : null,
+        impactMax: Number.isFinite(impactMax as number) ? impactMax : null,
+      };
+    });
+
+    status.value = 'API response received';
+  } else if (apiResult?.error) {
+    status.value = `API error: ${apiResult.error}`;
+  } else {
+    status.value = 'API did not return a response';
+  }
+}
+
+async function requestNonFoodApiEstimate() {
+  const query = buildNonFoodQuery();
+  if (!query) {
+    status.value = 'Missing product info for non-food estimate';
+    apiBreakdown.value = [];
+    return;
+  }
+
+  const apiResult = await fetchNonFoodCarbon(query);
+  if (!apiResult) {
+    status.value = 'Non-food carbon API returned no data';
+    apiBreakdown.value = [];
+    return;
+  }
+
+  const totalCO2 = Number(apiResult.carbon_footprint ?? 0);
+  const breakdownRows = buildNonFoodBreakdownRows(apiResult, totalCO2);
+
+  apiBreakdown.value = breakdownRows;
+  result.value = {
+    carbon: totalCO2,
+    intensity: computeIntensity(totalCO2),
+    breakdown: breakdownRows.map((row) => ({
+      name: row.name,
+      impact: row.impact,
+      percentage: row.percentage,
+    })),
+    source: 'ai-estimated',
+  };
+
+  status.value = 'Non-food carbon data received';
+}
+
+function buildNonFoodQuery(): string | null {
+  const instance = props.pokedex?.instance as
+    | Record<string, unknown>
+    | undefined;
+  if (!instance) return null;
+
+  const candidates = [
+    instance['title'],
+    instance['brand'],
+    instance['type'],
+    instance['category'],
+    instance['description'],
+  ]
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter((val) => val.length);
+
+  if (candidates.length) {
+    return candidates.join(' ');
+  }
+
+  const ids = (instance['ids'] ?? instance['iDs']) as
+    | Array<{ id?: string }>
+    | undefined;
+  if (Array.isArray(ids) && ids[0]?.id) {
+    return ids[0].id;
+  }
+
+  return null;
+}
+
+function buildNonFoodBreakdownRows(
+  apiResult: NonFoodCarbonResponse,
+  totalCO2: number
+): ApiBreakdownRow[] {
+  const details = (apiResult.details ?? {}) as Record<string, any>;
+  const sourceUrl =
+    typeof details.link === 'string' && details.link ? details.link : null;
+
+  const shareEntries: Array<{ key: string; label: string }> = [
+    { key: 'manufacturing_share', label: 'Manufacturing' },
+    { key: 'use_phase_share', label: 'Use Phase' },
+    { key: 'transport_share', label: 'Transport' },
+  ];
+
+  const rows = shareEntries
+    .map(({ key, label }) => {
+      const shareValueRaw = Number(details[key]);
+      if (!Number.isFinite(shareValueRaw) || shareValueRaw <= 0) return null;
+      const shareValue =
+        shareValueRaw > 1 && shareValueRaw <= 100
+          ? shareValueRaw / 100
+          : shareValueRaw;
+      const boundedShare = Math.min(Math.max(shareValue, 0), 1);
+      if (boundedShare <= 0) return null;
+      return {
+        name: label,
+        impact: boundedShare * totalCO2,
+        percentage: boundedShare * 100,
+        source: apiResult.source ?? null,
+        sourceUrl,
+        warning: null,
+        impactMin: null,
+        impactMax: null,
+      };
+    })
+    .filter((row): row is ApiBreakdownRow => Boolean(row));
+
+  if (!rows.length) {
+    rows.push({
+      name: apiResult.name ?? 'Carbon Estimate',
+      impact: totalCO2,
+      percentage: 100,
+      source: apiResult.source ?? null,
+      sourceUrl,
+      warning: null,
+      impactMin: null,
+      impactMax: null,
+    });
+  }
+
+  return rows;
+}
+
+function getInstanceQuantityKg() {
+  return Number((props.pokedex?.instance as any)?.quantity ?? 0) / 1000;
+}
+
+function computeIntensity(totalCO2: number) {
+  const quantityKg = getInstanceQuantityKg();
+  return quantityKg > 0 ? totalCO2 / quantityKg : totalCO2;
 }
 
 onMounted(() => {
@@ -292,5 +459,4 @@ async function enhance() {
   white-space: normal;
   word-break: break-word;
 }
-
 </style>

@@ -102,6 +102,7 @@ import {
   suggestInputsFromQuery,
   type SuggestionParams,
 } from 'src/services/ai/AiInputSuggester';
+import { fetchNonFoodDecomposition } from 'src/services/nonFoodService';
 
 const props = defineProps<{ modelValue: Pokedex }>();
 const emit = defineEmits<{
@@ -126,6 +127,13 @@ watch(
 );
 
 const outputInstance = computed<ProductInstance>(() => value.value.instance);
+
+const productCategory = computed(() => {
+  const category = (outputInstance.value as any)?.category;
+  return typeof category === 'string' ? category.toLowerCase() : '';
+});
+
+const isFoodProduct = computed(() => productCategory.value === 'food');
 
 function getProcess(instance: ProductInstance): Process | undefined {
   // Only some instances (e.g. FoodInstance) carry a `process`.
@@ -195,12 +203,19 @@ function buildSuggestParams(): SuggestionParams | null {
   const ids = (out as any)?.ids ?? (out as any)?.iDs;
   const normalizedIds = Array.isArray(ids) ? ids : undefined;
   const ownerId = (out as any)?.ownerId;
+  const size = (out as any)?.size;
+  const format = (out as any)?.format;
+  const quantity = Number((out as any)?.quantity);
 
   const params: SuggestionParams = {
     title: (out as any)?.title,
     brand: (out as any)?.brand || ownerId,
     category: (out as any)?.category,
     type: out?.type,
+    quantity: Number.isFinite(quantity) ? quantity : undefined,
+    size: typeof size === 'string' ? size : undefined,
+    format: typeof format === 'string' ? format : undefined,
+    ownerId: typeof ownerId === 'string' ? ownerId : undefined,
     ids: normalizedIds,
   };
 
@@ -222,94 +237,268 @@ function normalizeType(value: unknown): string {
 }
 
 async function maybeSuggest() {
-  if (!aiReady.value) {
-    logSuggest('Skip suggest: AI not ready');
+  const params = buildSuggestParams();
+  if (!params || !params.query) {
+    logSuggest('Skip suggest: need at least a title/type/category/url');
     return;
+  }
+
+  const useNonFoodApi = !isFoodProduct.value;
+
+  if (!useNonFoodApi && !aiReady.value) {
+    logSuggest('AI not ready — trying fallback');
   }
   if (suggesting.value) {
     logSuggest('Skip suggest: already running');
     return;
   }
-  const params = buildSuggestParams();
-  if (!params) {
-    logSuggest('Skip suggest: need at least a title/type/category/url');
-    return;
-  }
 
-  const queryKey = JSON.stringify(params);
+  const queryKey = JSON.stringify({ params, useNonFoodApi });
   if (queryKey === lastQuery.value) {
     logSuggest('Skip suggest: same params as last time', params);
     return;
   }
 
   suggesting.value = true;
-  lastQuery.value = queryKey;
   try {
-    logSuggest('Suggesting with params', params);
-    const suggestions = await suggestInputsFromQuery(params);
-    logSuggest('Suggestions returned', { count: suggestions.length });
-    const targetProcess = ensureProcessWithInputs();
-    if (targetProcess?.inputInstances) {
-      const flattened: InputInstance[] = [];
-      let processMeta: Process | undefined;
-
-      // If the server returns a product with a nested process, capture process meta and flatten to its inputInstances.
-      for (const suggestion of suggestions) {
-        const inst = suggestion?.instance as any;
-        const nestedInputs: InputInstance[] | undefined =
-          inst?.process?.inputInstances;
-        if (!processMeta && inst?.process) {
-          processMeta = inst.process as Process;
-        }
-        if (Array.isArray(nestedInputs) && nestedInputs.length) {
-          flattened.push(...nestedInputs);
-        } else {
-          flattened.push(suggestion);
-        }
+    let handled = false;
+    if (useNonFoodApi) {
+      handled = await requestNonFoodDecomposition(params.query);
+    } else {
+      if (aiReady.value) {
+        handled = await requestFoodSuggestions(params);
       }
-
-      if (processMeta) {
-        targetProcess.type =
-          processMeta.type ?? targetProcess.type ?? 'process';
-        (targetProcess as any).category =
-          (processMeta as any)?.category ?? (targetProcess as any)?.category;
-        (targetProcess as any).name =
-          (processMeta as any)?.name ?? (targetProcess as any)?.name;
+      if (!handled) {
+        handled = await requestNonFoodDecomposition(params.query);
       }
+    }
 
-      for (const suggestion of flattened) {
-        const sugInst = suggestion?.instance;
-        if (isTokenIdOrObject<ProductInstance>(sugInst)) {
-          const rawType = sugInst.type ?? sugInst.title;
-          const norm = normalizeType(rawType);
-          if (norm && suppressedTypes.value.has(norm)) {
-            logSuggest('Skip suggestion (suppressed type)', rawType);
-            continue;
-          }
-          if (norm) {
-            sugInst.type = rawType ? rawType.toLowerCase() : norm;
-          }
-          const exists = targetProcess.inputInstances.some((inp) => {
-            const inst = inp?.instance;
-            if (!isTokenIdOrObject<ProductInstance>(inst)) return false;
-            return normalizeType(inst.type ?? inst.title) === norm;
-          });
-          if (exists) {
-            logSuggest('Skip suggestion (duplicate type)', rawType);
-            continue;
-          }
-          if (norm) suppressedTypes.value.add(norm);
-        }
-        logSuggest(
-          'Adding suggestion',
-          (suggestion as any)?.instance?.type || (suggestion as any)?.type
-        );
-        targetProcess.inputInstances.push(suggestion);
-      }
+    if (handled) {
+      lastQuery.value = queryKey;
+    } else {
+      lastQuery.value = null;
     }
   } finally {
     suggesting.value = false;
   }
+}
+
+async function requestFoodSuggestions(params: SuggestionParams) {
+  logSuggest('Suggesting with params', params);
+  const suggestions = await suggestInputsFromQuery(params);
+  logSuggest('Suggestions returned', { count: suggestions.length });
+  const targetProcess = ensureProcessWithInputs();
+  if (!targetProcess?.inputInstances || !suggestions.length) return false;
+
+  const flattened: InputInstance[] = [];
+  let processMeta: Process | undefined;
+
+  for (const suggestion of suggestions) {
+    const inst = suggestion?.instance as any;
+    const nestedInputs: InputInstance[] | undefined =
+      inst?.process?.inputInstances;
+    if (!processMeta && inst?.process) {
+      processMeta = inst.process as Process;
+    }
+    if (Array.isArray(nestedInputs) && nestedInputs.length) {
+      flattened.push(...nestedInputs);
+    } else {
+      flattened.push(suggestion);
+    }
+  }
+
+  if (processMeta) {
+    targetProcess.type = processMeta.type ?? targetProcess.type ?? 'process';
+    (targetProcess as any).category =
+      (processMeta as any)?.category ?? (targetProcess as any)?.category;
+    (targetProcess as any).name =
+      (processMeta as any)?.name ?? (targetProcess as any)?.name;
+  }
+
+  let added = false;
+  for (const suggestion of flattened) {
+    const sugInst = suggestion?.instance;
+    if (isTokenIdOrObject<ProductInstance>(sugInst)) {
+      const rawType = sugInst.type ?? sugInst.title;
+      const norm = normalizeType(rawType);
+      if (norm && suppressedTypes.value.has(norm)) {
+        logSuggest('Skip suggestion (suppressed type)', rawType);
+        continue;
+      }
+      if (norm) {
+        sugInst.type = rawType ? rawType.toLowerCase() : norm;
+      }
+      const exists = targetProcess.inputInstances.some((inp) => {
+        const inst = inp?.instance;
+        if (!isTokenIdOrObject<ProductInstance>(inst)) return false;
+        return normalizeType(inst.type ?? inst.title) === norm;
+      });
+      if (exists) {
+        logSuggest('Skip suggestion (duplicate type)', rawType);
+        continue;
+      }
+      if (norm) suppressedTypes.value.add(norm);
+    }
+    logSuggest(
+      'Adding suggestion',
+      (suggestion as any)?.instance?.type || (suggestion as any)?.type
+    );
+    targetProcess.inputInstances.push(suggestion);
+    added = true;
+  }
+
+  return added;
+}
+
+function buildNonFoodPayload(
+  baseQuery?: string | null
+): Record<string, unknown> | null {
+  const instance = outputInstance.value as Record<string, any> | undefined;
+  const payload: Record<string, unknown> = {};
+
+  const addStringField = (key: string, value: unknown) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) payload[key] = trimmed;
+    }
+  };
+
+  if (instance) {
+    addStringField('title', instance.title ?? instance.name);
+    addStringField('brand', instance.brand);
+    addStringField('category', instance.category);
+    addStringField('type', instance.type);
+    addStringField('description', instance.description);
+    addStringField('format', instance.format);
+    addStringField('size', instance.size);
+    addStringField('ownerId', instance.ownerId);
+    addStringField('packaging', instance.packaging);
+
+    const quantity = Number(instance.quantity);
+    if (Number.isFinite(quantity)) {
+      payload.quantity = quantity;
+    }
+
+    const ids = instance.ids ?? instance.iDs;
+    if (Array.isArray(ids) && ids.length) {
+      payload.ids = ids;
+    }
+  }
+
+  const primaryQuery =
+    typeof baseQuery === 'string' && baseQuery.trim().length
+      ? baseQuery.trim()
+      : '';
+
+  const fallbackQuery =
+    (payload.title as string) ??
+    (payload.type as string) ??
+    (payload.category as string) ??
+    (payload.brand as string) ??
+    (payload.description as string);
+
+  const idsQuery = Array.isArray(payload.ids)
+    ? (payload.ids as Array<{ id?: string }>).find((item) =>
+        typeof item?.id === 'string' && item.id.trim().length
+      )?.id
+    : undefined;
+
+  const query = primaryQuery || fallbackQuery || idsQuery;
+  if (!query) {
+    return null;
+  }
+
+  return {
+    ...payload,
+    query,
+  };
+}
+
+async function requestNonFoodDecomposition(baseQuery: string) {
+  const payload = buildNonFoodPayload(baseQuery);
+  if (!payload) {
+    logSuggest('Non-food payload missing query context');
+    return false;
+  }
+
+  logSuggest('Requesting non-food decomposition', payload);
+  const response = await fetchNonFoodDecomposition(payload);
+  if (!response?.process?.inputInstances?.length) {
+    logSuggest('Non-food decomposition did not return inputs');
+    return false;
+  }
+
+  const targetProcess = ensureProcessWithInputs();
+  if (!targetProcess?.inputInstances) return false;
+
+  const normalized = response.process.inputInstances.map((raw, idx) =>
+    normalizeNonFoodInput(raw, idx)
+  );
+
+  targetProcess.inputInstances.splice(
+    0,
+    targetProcess.inputInstances.length,
+    ...normalized
+  );
+
+  targetProcess.type =
+    response.process?.type ?? targetProcess.type ?? 'process';
+  (targetProcess as any).name =
+    response.process?.name ?? (targetProcess as any)?.name ?? 'process';
+  (targetProcess as any).category =
+    response.category ?? (targetProcess as any)?.category ?? 'process';
+
+  suppressedTypes.value.clear();
+  for (const inp of normalized) {
+    const inst = inp.instance;
+    if (isTokenIdOrObject<ProductInstance>(inst)) {
+      const norm = normalizeType(inst.type ?? inst.title);
+      if (norm) suppressedTypes.value.add(norm);
+    }
+  }
+
+  logSuggest('Non-food decomposition applied', {
+    count: normalized.length,
+  });
+
+  return normalized.length > 0;
+}
+
+function normalizeNonFoodInput(
+  raw: { quantity?: number; priceShare?: number; instance?: any },
+  idx: number
+): InputInstance {
+  const rawInstance = (raw?.instance ?? {}) as Record<string, any>;
+  const fallbackName = `Component ${idx + 1}`;
+  const nameSource = rawInstance.name ?? rawInstance.type ?? fallbackName;
+  const title =
+    typeof nameSource === 'string' && nameSource.trim().length
+      ? nameSource
+      : fallbackName;
+  const typeValue =
+    typeof rawInstance.type === 'string' && rawInstance.type.trim().length
+      ? rawInstance.type
+      : title || fallbackName;
+
+  const normalizedInstance: ProductInstance = {
+    ...(rawInstance as ProductInstance),
+    title,
+    type: typeValue,
+    category:
+      typeof rawInstance.category === 'string' &&
+      rawInstance.category.trim().length
+        ? rawInstance.category
+        : 'component',
+    quantity: Number(rawInstance.quantity ?? 0),
+  } as ProductInstance;
+
+  return {
+    // Always treat as local so editor renders full form
+    type: 'local',
+    quantity: Number(raw?.quantity ?? 0),
+    priceShare: Number(raw?.priceShare ?? 0),
+    instance: normalizedInstance,
+  } as InputInstance;
 }
 
 function onFocusOut(event: FocusEvent) {

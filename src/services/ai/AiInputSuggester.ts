@@ -6,6 +6,10 @@ export interface SuggestionParams {
   brand?: string;
   category?: string;
   type?: string;
+  quantity?: number;
+  size?: string;
+  format?: string;
+  ownerId?: string;
   ids?: { id: string; registry: string }[];
   query?: string;
 }
