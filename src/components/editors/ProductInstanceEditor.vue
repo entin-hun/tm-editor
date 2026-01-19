@@ -22,10 +22,12 @@
           v-if="value.category === 'food'"
           v-model="value"
           :is-root="isRoot"
+          :show-process="showProcess"
         />
         <NonFoodInstanceEditor
           v-model="value"
           v-else-if="value.category === 'non-food'"
+          :show-process="showProcess"
         />
         <PriceEditor
           v-if="'price' in value"
@@ -59,6 +61,7 @@ const props = defineProps<{
   label: string;
   priced: boolean;
   isRoot?: boolean;
+  showProcess?: boolean;
 }>();
 
 const emit = defineEmits(['update:modelValue']);
@@ -72,6 +75,7 @@ const value = ref<ProductInstance | Priced<ProductInstance>>(
       ? clone(defaultPricedProductInstance)
       : clone(defaultProductInstance))
 );
+const showProcess = props.showProcess ?? true;
 
 function normalizeCategory(category: string | undefined): string | undefined {
   if (category === 'cartridge') return 'non-food';

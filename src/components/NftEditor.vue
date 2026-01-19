@@ -6,7 +6,12 @@
           class="q-pa-md"
           style="height: 100vh; overflow: auto; min-width: 0; max-width: 100%"
         >
-          <PokedexEditor v-model="value" v-model:selectedTarget="selectedTarget">
+          <PokedexEditor
+            v-model="value"
+            v-model:selectedTarget="selectedTarget"
+            v-model:machineDraft="machineDraft"
+            v-model:knowHowDraft="knowHowDraft"
+          >
             <template #actions>
               <div class="row items-center q-gutter-sm">
                 <q-btn-dropdown
@@ -79,7 +84,7 @@
                   class="col"
                 />
                 <q-btn
-                  label="mint"
+                  label="On-Chain NFT"
                   @click="onMintClick"
                   icon="send"
                   color="primary"
@@ -210,8 +215,13 @@ import AIChatPanel from './ai/AIChatPanel.vue';
 import EcoPanel from './editors/impacts/EcoPanel.vue';
 import { api } from 'src/boot/axios';
 import { provide, ref, Ref, watch, onMounted, onUnmounted } from 'vue';
-import { Pokedex } from '@trace.market/types';
-import { clone, defaultPokedex } from './editors/defaults';
+import { Pokedex, MachineInstance, KnowHow } from '@trace.market/types';
+import {
+  clone,
+  defaultPokedex,
+  defaultMachineInstance,
+  defaultKnowHow,
+} from './editors/defaults';
 import { useQuasar, copyToClipboard } from 'quasar';
 import { useAccountStore } from 'src/stores/account';
 import { useDecompositionStore } from 'src/stores/decomposition';
@@ -227,11 +237,13 @@ import NftInputsFlow from './nftFlow/NftInputsFlow.vue';
 import { aiConfigStorage } from 'src/services/ai/AIConfigStorage';
 
 const value: Ref<Pokedex> = ref(clone(defaultPokedex));
+const machineDraft: Ref<MachineInstance> = ref(clone(defaultMachineInstance));
+const knowHowDraft: Ref<KnowHow> = ref(clone(defaultKnowHow));
 const rightTab = ref<'json' | 'flow' | 'tm-list' | 'wizard' | 'ai' | 'eco'>(
   'ai'
 );
 const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
-const jsonText = ref(JSON.stringify(value.value, undefined, 2));
+const jsonText = ref('');
 const hasJsonError = ref(false);
 const jsonError = ref('');
 
@@ -380,15 +392,54 @@ function applyInstance(newInstance: any) {
   // Directly mutate the instance property of the Pokedex object
   value.value.instance = newInstance;
 
-  // Force sync JSON view and clear any previous errors so the user sees the update
-  jsonText.value = JSON.stringify(value.value, undefined, 2);
-  hasJsonError.value = false;
-  jsonError.value = '';
+  syncJsonFromTarget();
 
   console.log(
     '[NftEditor] value.value.instance after update:',
     value.value.instance
   );
+}
+
+function stripBioFields<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map((item) => stripBioFields(item)) as T;
+  }
+  if (input && typeof input === 'object') {
+    const result: Record<string, unknown> = {};
+    Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+      if (key === 'bio') return;
+      result[key] = stripBioFields(value);
+    });
+    return result as T;
+  }
+  return input;
+}
+
+function getActiveJsonTarget() {
+  if (selectedTarget.value === 'machine') return machineDraft.value;
+  if (selectedTarget.value === 'knowHow') return knowHowDraft.value;
+  return value.value;
+}
+
+function setActiveJsonTarget(next: unknown) {
+  if (selectedTarget.value === 'machine') {
+    machineDraft.value = next as MachineInstance;
+    return;
+  }
+  if (selectedTarget.value === 'knowHow') {
+    knowHowDraft.value = next as KnowHow;
+    return;
+  }
+  value.value = next as Pokedex;
+}
+
+function syncJsonFromTarget() {
+  if (hasJsonError.value) return;
+  const target = getActiveJsonTarget();
+  const safe = stripBioFields(JSON.parse(JSON.stringify(target)));
+  jsonText.value = JSON.stringify(safe, undefined, 2);
+  hasJsonError.value = false;
+  jsonError.value = '';
 }
 
 // Provide action to switch tabs (e.g. from generic editor)
@@ -464,6 +515,7 @@ watch(
     if (next !== 'instance' && (rightTab.value === 'flow' || rightTab.value === 'eco')) {
       rightTab.value = 'json';
     }
+    syncJsonFromTarget();
   },
   { immediate: true }
 );
@@ -471,9 +523,29 @@ watch(
 // Update JSON text when value changes from form
 watch(
   value,
-  (newValue) => {
-    if (!hasJsonError.value) {
-      jsonText.value = JSON.stringify(newValue, undefined, 2);
+  () => {
+    if (selectedTarget.value === 'instance') {
+      syncJsonFromTarget();
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  machineDraft,
+  () => {
+    if (selectedTarget.value === 'machine') {
+      syncJsonFromTarget();
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  knowHowDraft,
+  () => {
+    if (selectedTarget.value === 'knowHow') {
+      syncJsonFromTarget();
     }
   },
   { deep: true }
@@ -483,7 +555,8 @@ watch(
 function parseJson() {
   try {
     const parsed = JSON.parse(jsonText.value);
-    value.value = parsed;
+    const cleaned = stripBioFields(parsed);
+    setActiveJsonTarget(cleaned);
     hasJsonError.value = false;
     jsonError.value = '';
   } catch (error: unknown) {
@@ -499,7 +572,8 @@ function onJsonInput(newValue: string | number | null) {
 
   try {
     const parsed = JSON.parse(jsonText.value);
-    value.value = parsed;
+    const cleaned = stripBioFields(parsed);
+    setActiveJsonTarget(cleaned);
     hasJsonError.value = false;
     jsonError.value = '';
   } catch (error: unknown) {

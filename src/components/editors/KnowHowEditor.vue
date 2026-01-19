@@ -20,7 +20,12 @@
           <BasicInput v-model="value.logoURL" label="logoURL" />
           <BasicInput v-model="value.hash" label="hash" default-value="" />
           <JsonataInputsEditor v-model="value.inputs" />
-          <BasicInput v-model="value.outputs" label="outputs" default-value="" />
+          <ProductInstanceEditor
+            v-model="outputsInstance"
+            label="outputs"
+            :priced="false"
+            :show-process="false"
+          />
         </template>
         <PriceEditor
           v-if="showPrice"
@@ -34,15 +39,16 @@
 </template>
 
 <script setup lang="ts">
-import { KnowHow } from '@trace.market/types';
+import { KnowHow, ProductInstance } from '@trace.market/types';
 import BasicInput from './BasicInput.vue';
 import PriceEditor from './PriceEditor.vue';
-import { clone, defaultKnowHow } from './defaults';
+import { clone, defaultKnowHow, defaultProductInstance } from './defaults';
 import { ref, watch, inject } from 'vue';
 import { defaultPrice } from './defaults';
 import { api } from 'src/boot/axios';
 import { useQuasar } from 'quasar';
 import JsonataInputsEditor from './JsonataInputsEditor.vue';
+import ProductInstanceEditor from './ProductInstanceEditor.vue';
 
 const props = defineProps<{
   modelValue: KnowHow | undefined;
@@ -58,6 +64,9 @@ const showFields = props.showFields ?? true;
 const showPrice = props.showPrice ?? true;
 const hashReference = ref('');
 const isResolving = ref(false);
+const outputsSyncing = ref(false);
+const outputsTouched = ref(false);
+const outputsInstance = ref<ProductInstance>(clone(defaultProductInstance));
 let resolveTimer: number | null = null;
 const $q = useQuasar();
 
@@ -92,6 +101,50 @@ watch(
       }, 0);
     }
   }
+);
+
+function parseOutputs(raw: string | undefined): ProductInstance | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as ProductInstance;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function syncOutputsFromValue() {
+  if (outputsSyncing.value) return;
+  const parsed = parseOutputs(value.value.outputs);
+  if (parsed) {
+    outputsInstance.value = parsed;
+  }
+}
+
+syncOutputsFromValue();
+
+watch(
+  () => value.value.outputs,
+  () => {
+    syncOutputsFromValue();
+  }
+);
+
+watch(
+  outputsInstance,
+  (next) => {
+    if (!outputsTouched.value && !value.value.outputs) {
+      outputsTouched.value = true;
+    }
+    if (!outputsTouched.value) return;
+    outputsSyncing.value = true;
+    value.value.outputs = JSON.stringify(next, null, 2);
+    outputsSyncing.value = false;
+  },
+  { deep: true }
 );
 
 function isKnowHow(candidate: unknown): candidate is KnowHow {

@@ -34,9 +34,6 @@
               />
             </div>
             <div class="col-12 col-sm-6 col-md-4">
-              <q-checkbox v-model="value.bio" label="bio" />
-            </div>
-            <div class="col-12 col-sm-6 col-md-4">
               <TimestampInput v-model="value.expiryDate" label="expiryDate" />
             </div>
             <div class="col-12 col-md-8">
@@ -48,42 +45,44 @@
             v-model="value.nutrients"
             label="nutrients"
           />
-          <q-select
-            v-model="processType"
-            :options="processTypes"
-            label="process type"
-          />
-          <PrintingProcessEditor
-            v-if="value.process?.type === 'printing'"
-            v-model="value.process"
-            :food-labels="true"
-          />
-          <MillingProcessEditor
-            v-else-if="value.process?.type === 'milling'"
-            v-model="value.process"
-            :food-labels="true"
-          />
-          <FreezeDryingProcessEditor
-            v-else-if="value.process?.type === 'freezedrying'"
-            v-model="value.process"
-            :food-labels="true"
-          />
-          <BlendingProcessEditor
-            v-else-if="value.process?.type === 'blending'"
-            v-model="value.process"
-            :food-labels="true"
-          />
-          <HarvestProcessEditor
-            v-else-if="value.process?.type === 'harvest'"
-            v-model="value.process"
-            :food-labels="true"
-          />
-          <GenericProcessEditor
-            v-else-if="value.process"
-            v-model="value.process"
-            :show-temperature-range="true"
-            :food-labels="true"
-          />
+          <template v-if="showProcess">
+            <q-select
+              v-model="processType"
+              :options="processTypes"
+              label="process type"
+            />
+            <PrintingProcessEditor
+              v-if="value.process?.type === 'printing'"
+              v-model="value.process"
+              :food-labels="true"
+            />
+            <MillingProcessEditor
+              v-else-if="value.process?.type === 'milling'"
+              v-model="value.process"
+              :food-labels="true"
+            />
+            <FreezeDryingProcessEditor
+              v-else-if="value.process?.type === 'freezedrying'"
+              v-model="value.process"
+              :food-labels="true"
+            />
+            <BlendingProcessEditor
+              v-else-if="value.process?.type === 'blending'"
+              v-model="value.process"
+              :food-labels="true"
+            />
+            <HarvestProcessEditor
+              v-else-if="value.process?.type === 'harvest'"
+              v-model="value.process"
+              :food-labels="true"
+            />
+            <GenericProcessEditor
+              v-else-if="value.process"
+              v-model="value.process"
+              :show-temperature-range="true"
+              :food-labels="true"
+            />
+          </template>
         </div>
       </q-expansion-item>
     </q-card>
@@ -122,10 +121,12 @@ import { useSchemaStore } from 'src/stores/schemaStore';
 const props = defineProps<{
   modelValue: FoodInstance | undefined;
   isRoot?: boolean;
+  showProcess?: boolean;
 }>();
 const emit = defineEmits(['update:modelValue']);
 
 const value = ref<FoodInstance>(props.modelValue ?? clone(defaultFoodInstance));
+const showProcess = props.showProcess ?? true;
 const schemaStore = useSchemaStore();
 
 const processTypeFactory: { [type: string]: Process } = {

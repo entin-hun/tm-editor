@@ -1,54 +1,91 @@
 <template>
   <div>
-    <div v-if="!ready" class="text-caption text-grey-6 q-mb-sm">
-      Loading visual editor…
+    <div class="text-caption text-grey-6 q-mb-sm">
+      JSONata expression. Tap a field to insert. Root ($) is added automatically.
     </div>
-    <div ref="container" class="jsonata-container" />
-    <div v-if="fallback" class="q-mt-md">
-      <div v-if="editorError" class="text-negative text-caption q-mb-sm">
-        JSONata editor error: {{ editorError }}
+    <q-input
+      ref="inputRef"
+      v-model="localValue"
+      type="textarea"
+      label="inputs"
+      filled
+      autogrow
+      @update:model-value="handleInput"
+      @keyup="handleCursor"
+      @click="handleCursor"
+      @focus="handleFocus"
+    />
+
+    <div v-if="suggestions.length" class="q-mt-sm">
+      <div class="text-caption text-grey-6 q-mb-xs">
+        Fields for {{ currentTypeLabel }}
       </div>
-      <div class="row items-center q-gutter-sm q-mb-sm">
+      <q-list bordered dense class="jsonata-suggestions">
+        <q-item
+          v-for="option in suggestions"
+          :key="option.name"
+          clickable
+          @click="insertSuggestion(option.name)"
+        >
+          <q-item-section>
+            <q-item-label>
+              {{ option.name }}
+              <span v-if="option.dataType" class="text-grey-6">· {{ option.dataType }}</span>
+            </q-item-label>
+            <q-item-label caption v-if="option.description">
+              {{ option.description }}
+            </q-item-label>
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </div>
+
+    <div v-if="operatorSuggestions.length" class="q-mt-sm">
+      <div class="text-caption text-grey-6 q-mb-xs">
+        Operators for {{ operatorTypeLabel }}
+      </div>
+      <div class="row items-center q-gutter-xs">
         <q-btn
-          label="Retry visual editor"
-          color="primary"
+          v-for="op in operatorSuggestions"
+          :key="op"
+          :label="op"
           dense
           no-caps
-          @click="retryVisualEditor"
+          outline
+          color="primary"
+          @click="insertOperator(op)"
         />
       </div>
-      <q-input
-        v-model="localValue"
-        type="textarea"
-        label="inputs"
-        filled
-        @update:model-value="emitValue"
-      />
+    </div>
+
+    <div class="q-mt-sm">
+      <div class="text-caption text-grey-6 q-mb-xs">Rules</div>
+      <div class="row items-center q-gutter-xs">
+        <q-btn label="AND" dense no-caps outline color="primary" @click="insertLogic('and')" />
+        <q-btn label="OR" dense no-caps outline color="primary" @click="insertLogic('or')" />
+        <q-btn label="( )" dense no-caps outline color="primary" @click="insertParentheses" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useSchemaStore } from 'src/stores/schemaStore';
 
 const props = defineProps<{ modelValue: string | undefined }>();
 const emit = defineEmits(['update:modelValue']);
 
-const container = ref<HTMLElement | null>(null);
-const ready = ref(false);
-const fallback = ref(false);
+const inputRef = ref<any>(null);
 const localValue = ref(props.modelValue ?? '');
 const schemaStore = useSchemaStore();
-let reactRoot: any = null;
-let ReactLib: any = null;
-let ReactDOM: any = null;
-let EditorComponent: any = null;
-let DefaultTheme: any = null;
-let ErrorBoundaryComponent: any = null;
-const editorError = ref<string | null>(null);
+const cursorPosition = ref(0);
+const suggestions = ref<Array<{ name: string; dataType?: string; description?: string }>>([]);
+const operatorSuggestions = ref<string[]>([]);
+const currentTypeLabel = ref('Pokedex');
+const operatorTypeLabel = ref('value');
 
-const jsonataSchema = schemaStore.buildJsonSchema('Pokedex', 5);
+const jsonataSchema = computed(() => schemaStore.buildJsonSchema('Pokedex', 5));
 
 function emitValue() {
   emit('update:modelValue', localValue.value);
@@ -63,140 +100,350 @@ watch(
   }
 );
 
-function getErrorBoundary() {
-  if (ErrorBoundaryComponent || !ReactLib?.Component) return ErrorBoundaryComponent;
-  class ErrorBoundary extends ReactLib.Component {
-    state = { hasError: false };
-
-    static getDerivedStateFromError() {
-      return { hasError: true };
-    }
-
-    componentDidCatch(error: unknown) {
-      if (this.props?.onError) {
-        this.props.onError(error);
-      }
-    }
-
-    componentDidUpdate(prevProps: any) {
-      if (prevProps?.resetKey !== this.props?.resetKey && this.state.hasError) {
-        this.setState({ hasError: false });
-      }
-    }
-
-    render() {
-      if (this.state.hasError) {
-        return this.props?.fallback ?? null;
-      }
-      return this.props?.children ?? null;
-    }
-  }
-  ErrorBoundaryComponent = ErrorBoundary;
-  return ErrorBoundaryComponent;
+function handleInput(value: string | number | null) {
+  localValue.value = typeof value === 'string' ? value : '';
+  emitValue();
+  updateSuggestions();
 }
 
-function handleEditorError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  editorError.value = message;
-  fallback.value = true;
+function handleCursor(event?: Event) {
+  const target = event?.target as HTMLTextAreaElement | undefined;
+  cursorPosition.value = target?.selectionStart ?? localValue.value.length;
+  updateSuggestions();
 }
 
-function renderEditor() {
-  if (!container.value || !reactRoot || !EditorComponent || !ReactLib) return;
-  if (!localValue.value || !localValue.value.trim()) {
-    localValue.value = '$';
-    emit('update:modelValue', localValue.value);
+function handleFocus() {
+  if (!localValue.value) {
+    localValue.value = '';
+    emitValue();
   }
-  const ErrorBoundary = getErrorBoundary();
-  const element = ReactLib.createElement(EditorComponent, {
-    text: localValue.value || '',
-    onChange: (next: string) => {
-      if (typeof next !== 'string') {
-        return;
-      }
-      localValue.value = next;
-      emit('update:modelValue', localValue.value);
-      editorError.value = null;
-    },
-    theme: DefaultTheme,
-    schema: jsonataSchema,
-  });
-  if (ErrorBoundary) {
-    const wrapped = ReactLib.createElement(
-      ErrorBoundary,
-      {
-        onError: handleEditorError,
-        resetKey: localValue.value,
-        fallback: ReactLib.createElement(
-          'div',
-          { style: { padding: '8px', color: '#f44336', fontSize: '12px' } },
-          'JSONata editor error. Showing fallback input.'
-        ),
-      },
-      element
-    );
-    reactRoot.render(wrapped);
+  handleCursor();
+}
+
+function getCurrentPath() {
+  const text = localValue.value ?? '';
+  const cursor = cursorPosition.value ?? text.length;
+  const before = text.slice(0, cursor);
+  const match = before.match(/\$[A-Za-z_][\w.]*$/);
+  const hasRoot = Boolean(match);
+  const pathText = match ? match[0] : before.trim();
+  const startIndex = match ? before.length - pathText.length : 0;
+  if (hasRoot && !pathText.startsWith('$')) return null;
+  const lastDot = pathText.lastIndexOf('.');
+  const basePath = lastDot >= 0 ? pathText.slice(hasRoot ? 1 : 0, lastDot) : '';
+  const segments = basePath.split('.').filter(Boolean);
+  const segmentStart = startIndex + (lastDot >= 0 ? lastDot + 1 : hasRoot ? 1 : 0);
+  const prefix = text.slice(segmentStart, cursor);
+  return { segments, prefix, segmentStart, needsRoot: !hasRoot };
+}
+
+const fieldTypeOverrides: Record<string, Record<string, string>> = {
+  Pokedex: {
+    instance: 'ProductInstance',
+  },
+  ProductInstance: {
+    price: 'Price',
+    process: 'Process',
+    packaging: 'PackagingInstance',
+  },
+  FoodInstance: {
+    process: 'Process',
+    packaging: 'PackagingInstance',
+    iDs: 'ID',
+    nutrients: 'FallbackFoodNutrient',
+  },
+  NonFoodInstance: {
+    process: 'Process',
+    packaging: 'PackagingInstance',
+  },
+  Process: {
+    facility: 'Facility',
+    site: 'Facility',
+    temperatureRange: 'TemperatureRange',
+    inputInstances: 'InputInstance',
+    impacts: 'Impact',
+    price: 'Price',
+    machineInstance: 'MachineInstance',
+    knowHow: 'KnowHow',
+  },
+  InputInstance: {
+    instance: 'ProductInstance',
+    transport: 'Transport',
+  },
+  Transport: {
+    method: 'string',
+    fuelType: 'string',
+  },
+  PackagingInstance: {
+    recyclable: 'boolean',
+  },
+  TemperatureRange: {
+    min: 'number',
+    max: 'number',
+  },
+  Price: {
+    amount: 'number',
+  },
+  MachineInstance: {
+    quantity: 'number',
+  },
+};
+
+function findFieldName(typeName: string, segment: string) {
+  const typeDesc = schemaStore.getTypeDescription(typeName);
+  if (fieldTypeOverrides[typeName]?.[segment]) return segment;
+  if (!typeDesc?.fields) return undefined;
+  if (typeDesc.fields[segment]) return segment;
+  const lower = segment.toLowerCase();
+  return Object.keys(typeDesc.fields).find((key) => key.toLowerCase() === lower);
+}
+
+function getFieldDataType(typeName: string, fieldName: string) {
+  const override = fieldTypeOverrides[typeName]?.[fieldName];
+  if (override) return override;
+  const desc = schemaStore.getFieldDescription(typeName, fieldName) as any;
+  return desc?.dataType as string | undefined;
+}
+
+function resolveTypePath(segments: string[]) {
+  let currentType = 'Pokedex';
+  for (const segment of segments) {
+    const resolvedName = findFieldName(currentType, segment);
+    if (!resolvedName) {
+      return { typeName: currentType, field: undefined };
+    }
+    const dataType = getFieldDataType(currentType, resolvedName);
+    if (!dataType) {
+      return { typeName: currentType, field: undefined };
+    }
+    currentType = dataType;
+  }
+  return { typeName: currentType, field: undefined };
+}
+
+function inferPrimitive(fieldName: string, dataType?: string) {
+  if (dataType === 'number' || dataType === 'boolean' || dataType === 'string') {
+    return dataType;
+  }
+  if (schemaStore.getTypeDescription(dataType || '')) {
+    return 'object';
+  }
+  const numericFields = new Set(['quantity', 'amount', 'timestamp', 'duration', 'min', 'max']);
+  const booleanFields = new Set(['bio', 'recyclable']);
+  if (numericFields.has(fieldName)) return 'number';
+  if (booleanFields.has(fieldName)) return 'boolean';
+  return 'string';
+}
+
+function getOperatorSuggestions(typeName: string) {
+  switch (typeName) {
+    case 'number':
+      return ['=', '!=', '>', '<', '>=', '<='];
+    case 'boolean':
+      return ['=', '!='];
+    case 'string':
+      return ['=', '!=', 'in', 'contains', '~>'];
+    default:
+      return ['=', '!='];
+  }
+}
+
+function getOperatorContext() {
+  const text = localValue.value ?? '';
+  const cursor = cursorPosition.value ?? text.length;
+  const before = text.slice(0, cursor);
+  if (!/\s+$/.test(before)) return null;
+  const tokenMatch = before.trimEnd().match(/(\$?[A-Za-z_][\w.]*)(?=\s*$)/);
+  if (!tokenMatch) return null;
+  const rawPath = tokenMatch[1];
+  const normalized = rawPath.startsWith('$') ? rawPath.slice(1) : rawPath;
+  const segments = normalized.split('.').filter(Boolean);
+  if (!segments.length) return null;
+  const fieldName = segments[segments.length - 1];
+  const parentSegments = segments.slice(0, -1);
+  const { typeName: parentType } = resolveTypePath(parentSegments);
+  const resolvedFieldName = findFieldName(parentType, fieldName) || fieldName;
+  const fieldDesc = schemaStore.getFieldDescription(parentType, resolvedFieldName);
+  const dataType = getFieldDataType(parentType, resolvedFieldName);
+  const primitive = inferPrimitive(fieldName, dataType ?? (fieldDesc as any)?.dataType);
+  return { primitive };
+}
+
+function updateSuggestions() {
+  const path = getCurrentPath();
+  if (!path) {
+    suggestions.value = [];
+    currentTypeLabel.value = 'Pokedex';
+  }
+
+  const operatorContext = getOperatorContext();
+  if (operatorContext) {
+    operatorTypeLabel.value = operatorContext.primitive;
+    operatorSuggestions.value = getOperatorSuggestions(operatorContext.primitive);
   } else {
-    reactRoot.render(element);
+    operatorSuggestions.value = [];
   }
-  ready.value = true;
+  if (!path) {
+    return;
+  }
+
+  const { segments, prefix } = path;
+  const { typeName } = resolveTypePath(segments);
+  currentTypeLabel.value = typeName;
+
+  const typeDesc = schemaStore.getTypeDescription(typeName);
+  const fieldKeys = new Set<string>([
+    ...Object.keys(typeDesc?.fields || {}),
+    ...Object.keys(fieldTypeOverrides[typeName] || {}),
+  ]);
+  if (!fieldKeys.size) {
+    suggestions.value = [];
+    return;
+  }
+
+  const options = Array.from(fieldKeys)
+    .filter((field) => field.toLowerCase().startsWith(prefix.toLowerCase()))
+    .map((field) => {
+      const desc = schemaStore.getFieldDescription(typeName, field);
+      const dataType = getFieldDataType(typeName, field);
+      return {
+        name: field,
+        dataType: dataType ?? (desc as any)?.dataType,
+        description: desc?.description,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  suggestions.value = options;
 }
 
-onMounted(async () => {
-  try {
-    const [reactModule, reactDomModule, editorModule, themeModule] =
-      await Promise.all([
-        import('react'),
-        import('react-dom/client'),
-        import('jsonata-visual-editor'),
-        import('./jsonataTheme'),
-      ]);
-
-    ReactLib = reactModule;
-    ReactDOM = reactDomModule;
-    EditorComponent = editorModule.Editor ?? editorModule.default ?? editorModule;
-    DefaultTheme = themeModule.createJsonataTheme
-      ? themeModule.createJsonataTheme(ReactLib)
-      : themeModule.default;
-
-    if (!container.value || !ReactDOM?.createRoot || !EditorComponent || !DefaultTheme) {
-      throw new Error('Jsonata visual editor not available');
+function insertSuggestion(fieldName: string) {
+  const path = getCurrentPath();
+  if (!path) return;
+  const text = localValue.value ?? '';
+  const cursor = cursorPosition.value ?? text.length;
+  let { segmentStart, needsRoot } = path;
+  let adjustedText = text;
+  let adjustedCursor = cursor;
+  if (needsRoot && !text.includes('$')) {
+    const prefix = '$.';
+    adjustedText = prefix + text;
+    segmentStart += prefix.length;
+    adjustedCursor += prefix.length;
+  }
+  const newValue =
+    adjustedText.slice(0, segmentStart) +
+    fieldName +
+    adjustedText.slice(adjustedCursor);
+  localValue.value = newValue;
+  emitValue();
+  const newCursor = segmentStart + fieldName.length;
+  nextTick(() => {
+    const native = (inputRef.value?.getNativeElement?.() ||
+      inputRef.value?.$el?.querySelector?.('textarea')) as
+      | HTMLTextAreaElement
+      | undefined;
+    if (native?.setSelectionRange) {
+      native.setSelectionRange(newCursor, newCursor);
+      native.focus();
     }
-
-    reactRoot = ReactDOM.createRoot(container.value);
-    renderEditor();
-  } catch (error) {
-    console.warn('[JsonataInputsEditor] Falling back to textarea', error);
-    fallback.value = true;
-    ready.value = true;
-  }
-});
-
-onBeforeUnmount(() => {
-  if (reactRoot?.unmount) {
-    reactRoot.unmount();
-  }
-});
-
-watch(localValue, () => {
-  if (!fallback.value) {
-    renderEditor();
-  }
-});
-
-function retryVisualEditor() {
-  if (!container.value || !ReactDOM?.createRoot) return;
-  editorError.value = null;
-  fallback.value = false;
-  if (!reactRoot) {
-    reactRoot = ReactDOM.createRoot(container.value);
-  }
-  renderEditor();
+    cursorPosition.value = newCursor;
+    updateSuggestions();
+  });
 }
+
+function insertOperator(operator: string) {
+  const text = localValue.value ?? '';
+  const cursor = cursorPosition.value ?? text.length;
+  const before = text.slice(0, cursor);
+  const after = text.slice(cursor);
+  const needsSpace = before.length > 0 && !/\s$/.test(before);
+  const insertText = `${needsSpace ? ' ' : ''}${operator} `;
+  const newValue = `${before}${insertText}${after}`;
+  localValue.value = newValue;
+  emitValue();
+  const newCursor = before.length + insertText.length;
+  nextTick(() => {
+    const native = (inputRef.value?.getNativeElement?.() ||
+      inputRef.value?.$el?.querySelector?.('textarea')) as
+      | HTMLTextAreaElement
+      | undefined;
+    if (native?.setSelectionRange) {
+      native.setSelectionRange(newCursor, newCursor);
+      native.focus();
+    }
+    cursorPosition.value = newCursor;
+    updateSuggestions();
+  });
+}
+
+function insertLogic(operator: 'and' | 'or') {
+  const text = localValue.value ?? '';
+  const cursor = cursorPosition.value ?? text.length;
+  const before = text.slice(0, cursor);
+  const after = text.slice(cursor);
+  const needsSpace = before.length > 0 && !/\s$/.test(before);
+  const insertText = `${needsSpace ? ' ' : ''}${operator} `;
+  const newValue = `${before}${insertText}${after}`;
+  localValue.value = newValue;
+  emitValue();
+  const newCursor = before.length + insertText.length;
+  nextTick(() => {
+    const native = (inputRef.value?.getNativeElement?.() ||
+      inputRef.value?.$el?.querySelector?.('textarea')) as
+      | HTMLTextAreaElement
+      | undefined;
+    if (native?.setSelectionRange) {
+      native.setSelectionRange(newCursor, newCursor);
+      native.focus();
+    }
+    cursorPosition.value = newCursor;
+    updateSuggestions();
+  });
+}
+
+function insertParentheses() {
+  const text = localValue.value ?? '';
+  const cursor = cursorPosition.value ?? text.length;
+  const before = text.slice(0, cursor);
+  const after = text.slice(cursor);
+  const insertText = '()';
+  const newValue = `${before}${insertText}${after}`;
+  localValue.value = newValue;
+  emitValue();
+  const newCursor = before.length + 1;
+  nextTick(() => {
+    const native = (inputRef.value?.getNativeElement?.() ||
+      inputRef.value?.$el?.querySelector?.('textarea')) as
+      | HTMLTextAreaElement
+      | undefined;
+    if (native?.setSelectionRange) {
+      native.setSelectionRange(newCursor, newCursor);
+      native.focus();
+    }
+    cursorPosition.value = newCursor;
+    updateSuggestions();
+  });
+}
+
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (typeof newVal === 'string' && newVal !== localValue.value) {
+      localValue.value = newVal;
+      updateSuggestions();
+    }
+  }
+);
+
+watch(jsonataSchema, () => {
+  updateSuggestions();
+});
 </script>
 
 <style scoped>
-.jsonata-container {
-  min-height: 240px;
+.jsonata-suggestions {
+  max-height: 240px;
+  overflow: auto;
 }
 </style>

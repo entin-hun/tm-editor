@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { Pokedex } from '@trace.market/types';
+import { Pokedex, MachineInstance, KnowHow } from '@trace.market/types';
 import BasicInput from './BasicInput.vue';
 import { clone, defaultKnowHow, defaultMachineInstance, defaultPokedex } from './defaults';
 import { ref, watch, onMounted } from 'vue';
@@ -77,12 +77,16 @@ import KnowHowEditor from './KnowHowEditor.vue';
 import axios from 'axios';
 import { useSchemaStore } from '../../stores/schemaStore';
 
-const props = defineProps<{ modelValue: Pokedex }>();
+const props = defineProps<{
+  modelValue: Pokedex;
+  machineDraft?: MachineInstance;
+  knowHowDraft?: KnowHow;
+}>();
 const schemaStore = useSchemaStore();
 
 const value = ref(props.modelValue ?? clone(defaultPokedex));
-const machineDraft = ref(clone(defaultMachineInstance));
-const knowHowDraft = ref(clone(defaultKnowHow));
+const machineDraft = ref(props.machineDraft ?? clone(defaultMachineInstance));
+const knowHowDraft = ref(props.knowHowDraft ?? clone(defaultKnowHow));
 const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
 const targetOptions = [
   { label: 'Instance', value: 'instance' },
@@ -92,7 +96,12 @@ const targetOptions = [
 const availableVersions = ref<string[]>([]);
 const loadingVersions = ref(false);
 
-const emit = defineEmits(['update:modelValue', 'update:selectedTarget']);
+const emit = defineEmits([
+  'update:modelValue',
+  'update:selectedTarget',
+  'update:machineDraft',
+  'update:knowHowDraft',
+]);
 
 async function fetchVersions() {
   loadingVersions.value = true;
@@ -147,6 +156,22 @@ watch(
   { immediate: true }
 );
 
+watch(
+  machineDraft,
+  (newValue) => {
+    emit('update:machineDraft', newValue);
+  },
+  { deep: true }
+);
+
+watch(
+  knowHowDraft,
+  (newValue) => {
+    emit('update:knowHowDraft', newValue);
+  },
+  { deep: true }
+);
+
 // Update internal state when parent replaces the object (e.g., JSON editor)
 watch(
   () => props.modelValue,
@@ -158,13 +183,39 @@ watch(
     }
   }
 );
+
+watch(
+  () => props.machineDraft,
+  (newVal) => {
+    if (newVal && newVal !== machineDraft.value) {
+      machineDraft.value = newVal;
+    }
+  }
+);
+
+watch(
+  () => props.knowHowDraft,
+  (newVal) => {
+    if (newVal && newVal !== knowHowDraft.value) {
+      knowHowDraft.value = newVal;
+    }
+  }
+);
 </script>
 
 <style scoped>
+.edit-target-toggle {
+  display: flex;
+  gap: 15px;
+}
+.edit-target-toggle .q-btn-group {
+  display: flex;
+  gap: 15px;
+}
 .edit-target-toggle .q-btn {
-  margin-right: 15px;
+  margin-right: 15px !important;
 }
 .edit-target-toggle .q-btn:last-child {
-  margin-right: 0;
+  margin-right: 0 !important;
 }
 </style>

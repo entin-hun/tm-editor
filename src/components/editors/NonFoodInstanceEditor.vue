@@ -21,9 +21,6 @@
               />
             </div>
             <div class="col-12 col-sm-6 col-md-4">
-              <q-checkbox v-model="value.bio" label="bio" />
-            </div>
-            <div class="col-12 col-sm-6 col-md-4">
               <TimestampInput v-model="value.expiryDate" label="expiryDate" />
             </div>
             <div class="col-12 col-md-8">
@@ -34,7 +31,7 @@
             </div>
           </div>
 
-          <q-card class="q-mt-md" dark>
+          <q-card v-if="showProcess" class="q-mt-md" dark>
             <q-expansion-item label="process" default-opened>
               <div class="q-pa-md">
                 <q-select
@@ -65,11 +62,12 @@ import ProcessEditor from './processes/ProcessEditor.vue';
 import { clone, defaultGenericProcess, defaultNonFoodInstance } from './defaults';
 import { useSchemaStore } from 'src/stores/schemaStore';
 
-const props = defineProps<{ modelValue: NonFoodInstance | undefined }>();
+const props = defineProps<{ modelValue: NonFoodInstance | undefined; showProcess?: boolean }>();
 const emit = defineEmits(['update:modelValue']);
 
 const schemaStore = useSchemaStore();
 const value = ref<NonFoodInstance>(props.modelValue ?? clone(defaultNonFoodInstance));
+const showProcess = props.showProcess ?? true;
 
 const processTypeFactory: { [type: string]: Process } = {};
 
@@ -89,10 +87,11 @@ const processTypes = computed(() => {
 });
 
 const processType = ref<string | undefined>(
-  value.value.process?.type ?? DEFAULT_NON_FOOD_PROCESS
+  showProcess ? value.value.process?.type ?? DEFAULT_NON_FOOD_PROCESS : undefined
 );
 
 watch(processType, (newValue) => {
+  if (!showProcess) return;
   if (newValue === value.value.process?.type) return;
 
   value.value.process =
@@ -109,6 +108,7 @@ watch(processType, (newValue) => {
 watch(
   () => value.value.process?.type,
   (newType) => {
+    if (!showProcess) return;
     processType.value = newType ?? DEFAULT_NON_FOOD_PROCESS;
   },
   { immediate: true }
@@ -128,7 +128,9 @@ watch(
     if (newVal !== value.value) {
       value.value = newVal ?? clone(defaultNonFoodInstance);
     }
-    processType.value = value.value.process?.type ?? DEFAULT_NON_FOOD_PROCESS;
+    if (showProcess) {
+      processType.value = value.value.process?.type ?? DEFAULT_NON_FOOD_PROCESS;
+    }
   }
 );
 </script>
