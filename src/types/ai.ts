@@ -2,14 +2,17 @@
 
 export type AIProvider = 'gemini' | 'groq' | 'openrouter';
 
-export interface AIConfig {
-  provider: AIProvider;
+export interface ProviderConfig {
   apiKey: string; // stored with basic obfuscation
-  model: string;
-  enabled: boolean;
   validated?: boolean; // explicit flag that validation succeeded
   lastValidated?: string; // ISO timestamp
   lastError?: string;
+}
+
+export interface AIConfig {
+  providers: Partial<Record<AIProvider, ProviderConfig>>;
+  activeProvider: AIProvider; // Currently active provider for task execution
+  enabled: boolean;
 }
 
 export interface AIModel {

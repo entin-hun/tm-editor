@@ -1,5 +1,7 @@
 import { LocalInputInstance } from '@trace.market/types';
 import { aiConfigStorage } from './AIConfigStorage';
+import { selectModelForTask } from 'src/config/aiConfig';
+import type { TaskType } from 'src/config/aiConfig';
 
 export interface SuggestionParams {
   title?: string;
@@ -15,14 +17,7 @@ export interface SuggestionParams {
 }
 
 function aiReady(): boolean {
-  const config = aiConfigStorage.getConfig();
-  return !!(
-    config &&
-    config.enabled &&
-    config.apiKey &&
-    config.validated &&
-    !config.lastError
-  );
+  return aiConfigStorage.isConfigured();
 }
 
 const SUGGEST_URL =
@@ -36,14 +31,19 @@ export async function suggestInputsFromQuery(
   if (!aiReady()) return [];
 
   const payload = typeof params === 'string' ? { query: params } : params;
-  const config = aiConfigStorage.getConfig();
+  const apiKey = aiConfigStorage.getActiveApiKey();
+  const provider = aiConfigStorage.getActiveProvider();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (config?.apiKey) {
-    headers.Authorization = `Bearer ${config.apiKey}`;
-    if ((config as any)?.provider)
-      headers['x-ai-provider'] = (config as any).provider;
+
+  if (apiKey && provider) {
+    headers.Authorization = `Bearer ${apiKey}`;
+    headers['x-ai-provider'] = provider;
+    // Automatically select best model for suggestion task
+    const bestModel = selectModelForTask(provider, 'suggestion' as TaskType);
+    headers['x-ai-model'] = bestModel;
   }
 
   try {

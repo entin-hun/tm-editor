@@ -19,57 +19,184 @@
         </div>
       </div>
     </div>
-    <div v-else class="row">
-      <q-card
-        v-for="item in sortedNfts"
-        :key="item.tokenId.toString()"
-        class="q-ma-sm col-12"
-        style="width: 100%"
+    <div v-else class="column q-gutter-md">
+      <q-expansion-item
+        label="Instances"
+        icon="inventory_2"
+        default-opened
       >
-        <q-card-section>
-          <div class="row items-center q-mb-sm">
-            <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
-            <div v-if="account !== undefined">
-              <q-btn
-                v-if="item.listing !== undefined"
-                fab-mini
-                @click="cancelListing(item.tokenId, item.listing.id)"
-                icon="close"
-                dense
-                color="negative"
-              />
-              <q-btn
-                v-else
-                fab-mini
-                @click="createListing(item.tokenId, item.metadata)"
-                icon="sell"
-                dense
-                color="primary"
-              />
-            </div>
-          </div>
-          <div class="row items-center">
-            <div class="col text-caption text-grey-6">
-              {{ item.stringValues }}
-            </div>
-            <q-btn
-              round
-              flat
-              size="10px"
-              icon="content_copy"
-              @click="copyToClipboard(item.tokenId.toString())"
-              class="q-ml-sm"
-            />
-            <a
-              :href="fairFoodUrl(item.tokenId)"
-              target="_blank"
-              class="q-ml-sm"
-            >
-              <q-icon name="open_in_new" size="16px" />
-            </a>
-          </div>
-        </q-card-section>
-      </q-card>
+        <div v-if="instanceNfts.length" class="row">
+          <q-card
+            v-for="item in instanceNfts"
+            :key="item.tokenId.toString()"
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
+                <div v-if="account !== undefined">
+                  <q-btn
+                    v-if="item.listing !== undefined"
+                    fab-mini
+                    @click="cancelListing(item.tokenId, item.listing.id)"
+                    icon="close"
+                    dense
+                    color="negative"
+                  />
+                  <q-btn
+                    v-else
+                    fab-mini
+                    @click="createListing(item.tokenId, item.metadata)"
+                    icon="sell"
+                    dense
+                    color="primary"
+                  />
+                </div>
+              </div>
+              <div class="row items-center">
+                <div class="col text-caption text-grey-6">
+                  {{ item.stringValues }}
+                </div>
+                <q-btn
+                  round
+                  flat
+                  size="10px"
+                  icon="content_copy"
+                  @click="copyToClipboard(item.tokenId.toString())"
+                  class="q-ml-sm"
+                />
+                <a
+                  :href="fairFoodUrl(item.tokenId)"
+                  target="_blank"
+                  class="q-ml-sm"
+                >
+                  <q-icon name="open_in_new" size="16px" />
+                </a>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+        <div v-else class="q-pa-md text-caption text-grey-6">
+          No instance NFTs found for this wallet.
+        </div>
+      </q-expansion-item>
+
+      <q-expansion-item label="Tools" icon="precision_manufacturing">
+        <div v-if="machineNfts.length" class="row">
+          <q-card
+            v-for="item in machineNfts"
+            :key="item.tokenId.toString()"
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
+                <div v-if="account !== undefined">
+                  <q-btn
+                    v-if="item.listing !== undefined"
+                    fab-mini
+                    @click="cancelListing(item.tokenId, item.listing.id)"
+                    icon="close"
+                    dense
+                    color="negative"
+                  />
+                  <q-btn
+                    v-else
+                    fab-mini
+                    @click="createListing(item.tokenId, item.metadata)"
+                    icon="sell"
+                    dense
+                    color="primary"
+                  />
+                </div>
+              </div>
+              <div class="row items-center">
+                <div class="col text-caption text-grey-6">
+                  {{ item.stringValues }}
+                </div>
+                <q-btn
+                  round
+                  flat
+                  size="10px"
+                  icon="content_copy"
+                  @click="copyToClipboard(item.tokenId.toString())"
+                  class="q-ml-sm"
+                />
+                <a
+                  :href="fairFoodUrl(item.tokenId)"
+                  target="_blank"
+                  class="q-ml-sm"
+                >
+                  <q-icon name="open_in_new" size="16px" />
+                </a>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+        <div v-else class="q-pa-md text-caption text-grey-6">
+          No tool NFTs found for this wallet.
+        </div>
+      </q-expansion-item>
+
+      <q-expansion-item label="Know-How" icon="menu_book">
+        <div v-if="knowHowNfts.length" class="row">
+          <q-card
+            v-for="item in knowHowNfts"
+            :key="item.tokenId.toString()"
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center q-mb-sm">
+                <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
+                <div v-if="account !== undefined">
+                  <q-btn
+                    v-if="item.listing !== undefined"
+                    fab-mini
+                    @click="cancelListing(item.tokenId, item.listing.id)"
+                    icon="close"
+                    dense
+                    color="negative"
+                  />
+                  <q-btn
+                    v-else
+                    fab-mini
+                    @click="createListing(item.tokenId, item.metadata)"
+                    icon="sell"
+                    dense
+                    color="primary"
+                  />
+                </div>
+              </div>
+              <div class="row items-center">
+                <div class="col text-caption text-grey-6">
+                  {{ item.stringValues }}
+                </div>
+                <q-btn
+                  round
+                  flat
+                  size="10px"
+                  icon="content_copy"
+                  @click="copyToClipboard(item.tokenId.toString())"
+                  class="q-ml-sm"
+                />
+                <a
+                  :href="fairFoodUrl(item.tokenId)"
+                  target="_blank"
+                  class="q-ml-sm"
+                >
+                  <q-icon name="open_in_new" size="16px" />
+                </a>
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+        <div v-else class="q-pa-md text-caption text-grey-6">
+          No know-how NFTs found for this wallet.
+        </div>
+      </q-expansion-item>
     </div>
   </div>
 </template>
@@ -200,6 +327,30 @@ const listingsRequest = useAsyncState(async () => {
   }
 }, undefined);
 
+function getInstanceCandidate(metadata: Pokedex | null): unknown {
+  if (!metadata || typeof metadata !== 'object') return null;
+  return (metadata as any).instance ?? null;
+}
+
+function isMachineInstance(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'providerSDomain' in (value as any) &&
+    'hr' in (value as any)
+  );
+}
+
+function isKnowHow(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'hash' in (value as any) &&
+    'inputs' in (value as any) &&
+    'outputs' in (value as any)
+  );
+}
+
 const sortedNfts = computed(() => {
   const nfts = listRequest.state.value || [];
   const listings = useListingsStore().listings;
@@ -218,6 +369,27 @@ const sortedNfts = computed(() => {
       return a.tokenId < b.tokenId ? 1 : -1;
     }
     return bnA < bnB ? 1 : -1;
+  });
+});
+
+const machineNfts = computed(() => {
+  return sortedNfts.value.filter((item) => {
+    const instance = getInstanceCandidate(item.metadata);
+    return isMachineInstance(instance);
+  });
+});
+
+const knowHowNfts = computed(() => {
+  return sortedNfts.value.filter((item) => {
+    const instance = getInstanceCandidate(item.metadata);
+    return isKnowHow(instance);
+  });
+});
+
+const instanceNfts = computed(() => {
+  return sortedNfts.value.filter((item) => {
+    const instance = getInstanceCandidate(item.metadata);
+    return !isMachineInstance(instance) && !isKnowHow(instance);
   });
 });
 

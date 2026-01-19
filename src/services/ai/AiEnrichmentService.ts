@@ -1,10 +1,17 @@
 import axios from 'axios';
 import { aiConfigStorage } from './AIConfigStorage';
+import { selectModelForTask } from 'src/config/aiConfig';
+import type { TaskType } from 'src/config/aiConfig';
 import { ProductInstance } from '@trace.market/types';
 
 export interface EnrichmentPayload {
   text?: string;
   attachments?: { name: string; content: string }[];
+  requestId?: string;
+  context?: {
+    source?: string;
+    schema?: string;
+  };
   externalSources?: {
     source?: string;
     registry?: string;
@@ -105,15 +112,47 @@ function extractProductInstance(data: unknown): ProductInstance | undefined {
   return undefined;
 }
 
+const EXTRACT_URL =
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as any)?.env?.VITE_MCP_EXTRACT_URL) ||
+  'https://mcp.trace.market/extract';
+
+function buildHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const apiKey = aiConfigStorage.getActiveApiKey();
+  const provider = aiConfigStorage.getActiveProvider();
+
+  if (apiKey && provider) {
+    headers.Authorization = `Bearer ${apiKey}`;
+    headers['x-ai-provider'] = provider;
+    // Automatically select best model for extraction task
+    const bestModel = selectModelForTask(provider, 'extraction' as TaskType);
+    headers['x-ai-model'] = bestModel;
+  }
+
+  return headers;
+}
+
 async function runStructuredExtraction(input: {
   text: string;
   attachments?: EnrichmentPayload['attachments'];
+  requestId?: string;
+  context?: EnrichmentPayload['context'];
 }): Promise<EnrichmentResult> {
   try {
     const resp = await axios.post<ProductInstance | string>(
-      'https://mcp.trace.market/extract',
-      input,
-      { timeout: 30000, headers: { 'Content-Type': 'application/json' } }
+      EXTRACT_URL,
+      {
+        ...input,
+        context: input.context || {
+          source: 'tm-editor',
+          schema: 'trace-market',
+        },
+      },
+      { timeout: 30000, headers: buildHeaders() }
     );
 
     if (resp.data) {
@@ -130,20 +169,40 @@ async function runStructuredExtraction(input: {
       }
 
       console.log('[AiEnrichment] Normalized data type:', typeof data);
-      const instance = extractProductInstance(data);
-      if (instance) {
-        console.log('[AiEnrichment] Valid ProductInstance detected:', instance);
-        const type = (instance as any).type || 'unknown-item';
-        return {
-          summary: `Extracted ${type} from provided text.`,
-          populated: instance,
-          rawText: input.text,
-        };
-      } else {
-        console.warn(
-          '[AiEnrichment] No ProductInstance found in response data'
-        );
+
+      // Check if response already has summary/populated structure (new API format)
+      const dataObj = data as any;
+      if (dataObj && typeof dataObj === 'object') {
+        // New format: {summary, populated: {instance, process}}
+        if (dataObj.summary && dataObj.populated) {
+          console.log(
+            '[AiEnrichment] Response has summary/populated structure:',
+            dataObj.summary
+          );
+          return {
+            summary: dataObj.summary,
+            populated: dataObj.populated,
+            rawText: input.text,
+          };
+        }
+
+        // Legacy format: try to extract ProductInstance directly
+        const instance = extractProductInstance(data);
+        if (instance) {
+          console.log(
+            '[AiEnrichment] Valid ProductInstance detected:',
+            instance
+          );
+          const type = (instance as any).type || 'unknown-item';
+          return {
+            summary: `Extracted ${type} from provided text.`,
+            populated: instance,
+            rawText: input.text,
+          };
+        }
       }
+
+      console.warn('[AiEnrichment] No valid data structure found in response');
     }
   } catch (error) {
     console.error('[AiEnrichment] MCP extraction failed', { error });
@@ -159,14 +218,7 @@ async function runStructuredExtraction(input: {
 export async function enrichFromPayload(
   payload: EnrichmentPayload
 ): Promise<EnrichmentResult | null> {
-  const config = aiConfigStorage.getConfig();
-  if (
-    !config ||
-    !config.enabled ||
-    !config.apiKey ||
-    !config.validated ||
-    config.lastError
-  ) {
+  if (!aiConfigStorage.isConfigured()) {
     return null;
   }
 
@@ -199,5 +251,7 @@ export async function enrichFromPayload(
   return runStructuredExtraction({
     text: aggregatedText,
     attachments: payload.attachments,
+    requestId: payload.requestId,
+    context: payload.context,
   });
 }

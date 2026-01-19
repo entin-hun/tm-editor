@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { aiConfigStorage } from './AIConfigStorage';
+import { selectModelForTask } from 'src/config/aiConfig';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -7,36 +8,30 @@ interface ChatMessage {
 }
 
 export class LLMService {
-  private getConfig() {
-    return aiConfigStorage.getConfig();
-  }
-
   async complete(prompt: string, systemPrompt?: string): Promise<string> {
-    const config = this.getConfig();
-    if (!config || !config.enabled || !config.apiKey) {
+    if (!aiConfigStorage.isConfigured()) {
       throw new Error('AI is not configured or enabled');
     }
 
-    switch (config.provider) {
+    const apiKey = aiConfigStorage.getActiveApiKey();
+    const provider = aiConfigStorage.getActiveProvider();
+
+    if (!apiKey || !provider) {
+      throw new Error('No validated AI provider available');
+    }
+
+    const model = selectModelForTask(provider, 'chat');
+
+    switch (provider) {
       case 'gemini':
-        return this.callGemini(
-          config.apiKey,
-          config.model,
-          prompt,
-          systemPrompt
-        );
+        return this.callGemini(apiKey, model, prompt, systemPrompt);
       case 'groq':
-        return this.callGroq(config.apiKey, config.model, prompt, systemPrompt);
+        return this.callGroq(apiKey, model, prompt, systemPrompt);
       case 'openrouter':
-        return this.callOpenRouter(
-          config.apiKey,
-          config.model,
-          prompt,
-          systemPrompt
-        );
+        return this.callOpenRouter(apiKey, model, prompt, systemPrompt);
       default:
         throw new Error(
-          `Provider ${config.provider} not supported for chat completion`
+          `Provider ${provider} not supported for chat completion`
         );
     }
   }

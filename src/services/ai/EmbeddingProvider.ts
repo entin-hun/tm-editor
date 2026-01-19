@@ -60,10 +60,20 @@ export abstract class EmbeddingProvider {
    */
   async validate(): Promise<boolean> {
     try {
+      console.log(
+        `[EmbeddingProvider] Validating ${this.provider} with model ${this.model}...`
+      );
       const result = await this.generateEmbedding('test');
-      return result.embedding.length > 0;
+      const isValid = result.embedding.length > 0;
+      console.log(
+        `[EmbeddingProvider] Validation result: ${isValid}, embedding length: ${result.embedding.length}`
+      );
+      return isValid;
     } catch (error) {
-      console.error('API key validation failed:', error);
+      console.error(
+        `[EmbeddingProvider] Validation failed for ${this.provider}:`,
+        error
+      );
       return false;
     }
   }

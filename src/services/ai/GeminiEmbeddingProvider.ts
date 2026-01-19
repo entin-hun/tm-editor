@@ -29,15 +29,31 @@ export class GeminiEmbeddingProvider extends EmbeddingProvider {
 
   async generateEmbedding(text: string): Promise<EmbeddingResult> {
     try {
+      // Remove 'models/' prefix if present in the model name to avoid duplication
+      // because the base URL logic or the request might be appending it.
+      // But looking at the error: .../models/models/text-embedding-004...
+      // It implies this.model has 'models/' and the code adds another one.
+
+      const cleanModelName = this.model.startsWith('models/')
+        ? this.model.substring(7)
+        : this.model;
+
       const request: GeminiEmbeddingRequest = {
-        model: `models/${this.model}`,
+        model: `models/${cleanModelName}`,
         content: {
           parts: [{ text }],
         },
       };
 
+      // API endpoint reference: https://ai.google.dev/api/embeddings#v1beta.models.embedContent
+      // POST https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent
+
+      console.log(
+        `[GeminiEmbedding] Requesting embedding for model: ${cleanModelName}`
+      );
+
       const response = await this.client.post<GeminiEmbeddingResponse>(
-        `/models/${this.model}:embedContent?key=${this.apiKey}`,
+        `/models/${cleanModelName}:embedContent?key=${this.apiKey}`,
         request
       );
 

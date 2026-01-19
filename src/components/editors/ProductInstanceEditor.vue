@@ -18,10 +18,14 @@
           :options="instanceCategories"
           v-model="instanceCategory"
         />
-        <FoodInstanceEditor v-if="value.category === 'food'" v-model="value" />
-        <CartridgeInstanceEditor
+        <FoodInstanceEditor
+          v-if="value.category === 'food'"
           v-model="value"
-          v-else-if="value.category === 'cartridge'"
+          :is-root="isRoot"
+        />
+        <NonFoodInstanceEditor
+          v-model="value"
+          v-else-if="value.category === 'non-food'"
         />
         <PriceEditor
           v-if="'price' in value"
@@ -35,30 +39,32 @@
 
 <script setup lang="ts">
 import { Priced, ProductInstance } from '@trace.market/types';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import FoodInstanceEditor from './FoodInstanceEditor.vue';
-import CartridgeInstanceEditor from './CartridgeInstanceEditor.vue';
+import NonFoodInstanceEditor from './NonFoodInstanceEditor.vue';
 import {
   clone,
-  defaultCartridgeInstance,
   defaultFoodInstance,
+  defaultNonFoodInstance,
   defaultPricedProductInstance,
   defaultProductInstance,
 } from './defaults';
 import PriceEditor from './PriceEditor.vue';
 import type { DecompositionNode } from '../../types/decomposition';
 import { useDecompositionStore } from 'src/stores/decomposition';
+import { useSchemaStore } from 'src/stores/schemaStore';
 
 const props = defineProps<{
   modelValue: ProductInstance | Priced<ProductInstance> | undefined;
   label: string;
   priced: boolean;
+  isRoot?: boolean;
 }>();
 
 const emit = defineEmits(['update:modelValue']);
 const decompositionStore = useDecompositionStore();
+const schemaStore = useSchemaStore();
 
-const instanceCategories = ['food', 'cartridge'];
 
 const value = ref<ProductInstance | Priced<ProductInstance>>(
   props.modelValue ??
@@ -67,11 +73,30 @@ const value = ref<ProductInstance | Priced<ProductInstance>>(
       : clone(defaultProductInstance))
 );
 
-const instanceCategory = ref(value.value.category);
+function normalizeCategory(category: string | undefined): string | undefined {
+  if (category === 'cartridge') return 'non-food';
+  return category;
+}
+
+const instanceCategory = ref(normalizeCategory(value.value.category));
+if (instanceCategory.value !== value.value.category && instanceCategory.value) {
+  value.value.category = instanceCategory.value as any;
+}
+
+const instanceCategories = computed(() => {
+  const desc = schemaStore.getFieldDescription('ProductInstance', 'category');
+  const examples = desc?.examples?.length
+    ? desc.examples.filter((item) => item !== 'cartridge')
+    : ['food', 'non-food'];
+  const current = instanceCategory.value;
+  return current && !examples.includes(current)
+    ? [...examples, current]
+    : examples;
+});
 
 const productInstanceFactory: { [type: string]: ProductInstance } = {
   food: defaultFoodInstance,
-  cartridge: defaultCartridgeInstance,
+  'non-food': defaultNonFoodInstance,
 };
 
 function startImport() {
@@ -86,13 +111,22 @@ function handleImportAccept(node: DecompositionNode | null) {
   const { data, process } = node;
 
   // Handle different product categories
-  if (data.category === 'food' && value.value.category !== 'food') {
+  const normalizedCategory = normalizeCategory(data.category);
+  if (normalizedCategory === 'food' && value.value.category !== 'food') {
     instanceCategory.value = 'food';
     value.value = clone(defaultFoodInstance);
+  } else if (
+    normalizedCategory === 'non-food' &&
+    value.value.category !== 'non-food'
+  ) {
+    instanceCategory.value = 'non-food';
+    value.value = clone(defaultNonFoodInstance);
   }
 
   // Merge instance data details (e.g. type, nutrients, etc.)
-  Object.assign(value.value, data);
+  Object.assign(value.value, data, {
+    category: normalizedCategory ?? data.category,
+  });
 
   // Set process if available (contains decomposition inputs/ingredients)
   if (process) {
@@ -136,8 +170,12 @@ watch(instanceCategory, (newValue) => {
 watch(
   () => value.value.category,
   (newCategory) => {
-    if (newCategory !== instanceCategory.value) {
-      instanceCategory.value = newCategory;
+    const normalized = normalizeCategory(newCategory);
+    if (normalized && normalized !== newCategory) {
+      value.value.category = normalized as any;
+    }
+    if (normalized !== instanceCategory.value) {
+      instanceCategory.value = normalized;
     }
   },
   { immediate: true }

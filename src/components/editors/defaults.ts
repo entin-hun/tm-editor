@@ -11,7 +11,6 @@ import {
   TransportedInputInstance,
   Transport,
   GenericInputInstance,
-  CartridgeInstance,
   ID,
   Location,
   Hr,
@@ -20,6 +19,7 @@ import {
   SaleProcess,
   BlendingProcess,
   HarvestProcess,
+  LabelTaggerProcess,
   GenericImpact,
   CarbonImpact,
   WaterImpact,
@@ -27,6 +27,8 @@ import {
   Site,
   Priced,
   ProductInstance,
+  PackagingInstance,
+  NonFoodInstance,
 } from '@trace.market/types';
 
 export const defaultHr: Hr = {
@@ -80,12 +82,30 @@ export const defaultGenericProcess: GenericProcess = {
   price: undefined,
 };
 
+export const defaultGenericInputInstance: GenericInputInstance = {
+  priceShare: 1,
+  instance: '0x0',
+  quantity: 1,
+};
+
+export const defaultPackagingInputInstance: LocalInputInstance = {
+  type: 'local',
+  quantity: 1,
+  priceShare: 0,
+  instance: {
+    category: 'non-food',
+    type: 'packaging',
+    quantity: 1,
+  } as ProductInstance,
+};
+
 export const defaultMillingProcess: MillingProcess = {
   ...defaultGenericProcess,
   ...{
     type: 'milling',
     knowHow: defaultKnowHow,
     machineInstance: defaultMachineInstance,
+    inputInstances: [clone(defaultPackagingInputInstance)],
   },
 };
 
@@ -96,6 +116,7 @@ export const defaultPrintingProcess: PrintingProcess = {
     machineInstance: defaultMachineInstance,
     knowHow: defaultKnowHow,
     shape: '',
+    inputInstances: [clone(defaultPackagingInputInstance)],
   },
 };
 
@@ -105,6 +126,7 @@ export const defaultFreezeDryingProcess: FreezeDryingProcess = {
     type: 'freezedrying',
     machineInstance: defaultMachineInstance,
     knowHow: defaultKnowHow,
+    inputInstances: [clone(defaultPackagingInputInstance)],
   },
 };
 
@@ -114,6 +136,7 @@ export const defaultBlendingProcess: BlendingProcess = {
     type: 'blending',
     machineInstance: defaultMachineInstance,
     knowHow: defaultKnowHow,
+    inputInstances: [clone(defaultPackagingInputInstance)],
   },
 };
 
@@ -122,6 +145,7 @@ export const defaultHarvestProcess: HarvestProcess = {
   ...{
     type: 'harvest',
     machineInstance: defaultMachineInstance,
+    inputInstances: [clone(defaultPackagingInputInstance)],
   },
 };
 
@@ -130,12 +154,25 @@ export const defaultFoodInstance: FoodInstance = {
   type: '',
   bio: false,
   quantity: 1,
+  packaging: {
+    type: '',
+    material: '',
+    recyclable: false,
+  },
 };
 
-export const defaultGenericInputInstance: GenericInputInstance = {
-  priceShare: 1,
-  instance: '0x0',
+export const defaultPackagingInstance: PackagingInstance = {
+  type: '',
+  material: '',
+  recyclable: false,
+};
+
+export const defaultNonFoodInstance: NonFoodInstance = {
+  category: 'non-food',
+  type: '',
+  bio: false,
   quantity: 1,
+  packaging: defaultPackagingInstance,
 };
 
 export const defaultLocalInputInstance: LocalInputInstance = {
@@ -163,15 +200,6 @@ export const defaultPricedProductInstance: Priced<ProductInstance> = {
   ...defaultProductInstance,
   ...{ price: defaultPrice },
 };
-export const defaultCartridgeInstance: CartridgeInstance = {
-  bio: false,
-  category: 'cartridge',
-  type: '',
-  ownerId: '',
-  grade: '',
-  quantity: 1,
-  size: '',
-};
 
 export const defaultId: ID = {
   id: '',
@@ -186,10 +214,20 @@ export const defaultSaleProcess: SaleProcess = {
   },
 };
 
+export const defaultLabelTaggerProcess: LabelTaggerProcess = {
+  ...defaultGenericProcess,
+  ...{
+    type: 'labeltagger',
+    machineInstance: defaultMachineInstance,
+    knowHow: defaultKnowHow,
+    inputInstances: [clone(defaultPackagingInputInstance)],
+  },
+};
+
 export const defaultPokedex: Pokedex = {
   contract: '',
   description: '',
-  feedchainVersion: '',
+  typesVersion: '',
   token: '',
 
   instance: defaultPricedProductInstance,

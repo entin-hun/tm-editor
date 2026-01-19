@@ -8,7 +8,7 @@ import { createOpenRouterProvider } from './ai/OpenRouterEmbeddingProvider';
 import { createGroqProvider } from './ai/GroqEmbeddingProvider';
 import { aiConfigStorage } from './ai/AIConfigStorage';
 import type { SemanticSearchResult } from '../types/ai';
-import { EMBEDDING_CONFIG } from '../config/aiConfig';
+import { EMBEDDING_CONFIG, selectModelForTask } from '../config/aiConfig';
 
 /**
  * Calculate cosine similarity between two vectors
@@ -68,28 +68,52 @@ export class SemanticSearchEngine {
    * Initialize provider from stored config
    */
   private async initProvider(): Promise<boolean> {
-    const config = aiConfigStorage.getConfig();
+    console.log('[SemanticSearch] Checking if configured...');
+    const isConfigured = aiConfigStorage.isConfigured();
+    console.log(`[SemanticSearch] isConfigured: ${isConfigured}`);
 
-    if (!config || !config.enabled || !config.apiKey) {
+    if (!isConfigured) {
+      const config = aiConfigStorage.getConfig();
+      console.log('[SemanticSearch] Config:', config);
       return false;
     }
 
+    const apiKey = aiConfigStorage.getActiveApiKey();
+    const provider = aiConfigStorage.getActiveProvider();
+
+    console.log(
+      `[SemanticSearch] Provider: ${provider}, API key length: ${
+        apiKey?.length || 0
+      }`
+    );
+
+    if (!apiKey || !provider) {
+      return false;
+    }
+
+    // Use embedding model for this provider
+    const model = selectModelForTask(provider, 'embedding');
+    console.log(
+      `[SemanticSearch] Selected model: ${model} for provider: ${provider}`
+    );
+
     try {
-      switch (config.provider) {
+      switch (provider) {
         case 'gemini':
-          this.provider = createGeminiProvider(config.apiKey, config.model);
+          this.provider = createGeminiProvider(apiKey, model);
           break;
         case 'openrouter':
-          this.provider = createOpenRouterProvider(config.apiKey, config.model);
+          this.provider = createOpenRouterProvider(apiKey, model);
           break;
         case 'groq':
-          this.provider = createGroqProvider(config.apiKey, config.model);
+          this.provider = createGroqProvider(apiKey, model);
           break;
         default:
-          console.error(`Unknown AI provider: ${config.provider}`);
+          console.error(`Unknown AI provider: ${provider}`);
           return false;
       }
 
+      console.log(`[SemanticSearch] Provider created successfully`);
       return true;
     } catch (error) {
       console.error('Failed to initialize embedding provider:', error);
@@ -107,14 +131,16 @@ export class SemanticSearchEngine {
       throw new Error('Embedding provider not initialized');
     }
 
-    const config = aiConfigStorage.getConfig();
-    if (!config) {
-      throw new Error('AI config not found');
+    const provider = aiConfigStorage.getActiveProvider();
+    if (!provider) {
+      throw new Error('AI provider not configured');
     }
+
+    const model = selectModelForTask(provider, 'embedding');
 
     // Check cache first
     if (EMBEDDING_CONFIG.cacheEnabled) {
-      const cached = await this.cache.get(config.provider, config.model, text);
+      const cached = await this.cache.get(provider, model, text);
       if (cached && cached.embedding.length > 0) {
         return { embedding: cached.embedding, cached: true };
       }
@@ -127,8 +153,8 @@ export class SemanticSearchEngine {
     if (EMBEDDING_CONFIG.cacheEnabled && result.embedding.length > 0) {
       await this.cache.set({
         text,
-        provider: config.provider,
-        model: config.model,
+        provider,
+        model,
         embedding: result.embedding,
         dimensions: result.dimensions,
         cachedAt: new Date().toISOString(),
@@ -277,14 +303,38 @@ export class SemanticSearchEngine {
    * Validate AI configuration
    */
   async validateConfig(): Promise<boolean> {
+    console.log('[SemanticSearch] Starting validation...');
     const initialized = await this.initProvider();
+    console.log(`[SemanticSearch] Provider initialized: ${initialized}`);
+
     if (!initialized || !this.provider) {
+      console.log(
+        '[SemanticSearch] Validation failed: provider not initialized'
+      );
+      return false;
+    }
+
+    const provider = aiConfigStorage.getActiveProvider();
+    const apiKey = aiConfigStorage.getActiveApiKey();
+
+    console.log(
+      `[SemanticSearch] Active provider: ${provider}, has key: ${!!apiKey}`
+    );
+
+    if (!provider || !apiKey) {
+      console.log('[SemanticSearch] Validation failed: no provider or API key');
       return false;
     }
 
     try {
+      console.log(`[SemanticSearch] Calling provider.validate()...`);
       const isValid = await this.provider.validate();
-      aiConfigStorage.markValidated(
+      console.log(`[SemanticSearch] Provider validation result: ${isValid}`);
+
+      // Update provider's validation status
+      aiConfigStorage.updateProvider(
+        provider,
+        apiKey,
         isValid,
         isValid ? undefined : 'Validation failed'
       );
@@ -292,7 +342,8 @@ export class SemanticSearchEngine {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      aiConfigStorage.markValidated(false, errorMessage);
+      console.error('[SemanticSearch] Validation error:', errorMessage);
+      aiConfigStorage.updateProvider(provider, apiKey, false, errorMessage);
       return false;
     }
   }

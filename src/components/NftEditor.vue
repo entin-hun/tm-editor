@@ -2,100 +2,98 @@
   <div class="column fit">
     <q-splitter v-model="split" style="height: 100vh">
       <template #before>
-        <div class="q-pa-md" style="height: 100vh; overflow: auto">
-          <PokedexEditor v-model="value" />
+        <div
+          class="q-pa-md"
+          style="height: 100vh; overflow: auto; min-width: 0; max-width: 100%"
+        >
+          <PokedexEditor v-model="value" v-model:selectedTarget="selectedTarget">
+            <template #actions>
+              <div class="row items-center q-gutter-sm">
+                <q-btn-dropdown
+                  ref="walletDropdownRef"
+                  flat
+                  padding="0"
+                  rounded
+                >
+                  <template v-slot:label>
+                    <span
+                      style="
+                        max-width: 12em;
+                        text-overflow: ellipsis;
+                        overflow: hidden;
+                      "
+                    >
+                      {{ accountStore.account?.address ?? 'Connect Wallet' }}
+                    </span>
+                  </template>
+                  <div class="q-pa-md" style="min-width: 240px">
+                    <div class="column q-gutter-sm">
+                      <div class="row items-center q-gutter-sm">
+                        <q-select
+                          v-model="selectedWallet"
+                          :options="walletOptions"
+                          dense
+                          label="Wallet Provider"
+                          class="col"
+                        />
+                        <q-btn
+                          v-if="accountStore.account?.address"
+                          icon="content_copy"
+                          @click="
+                            accountStore.account?.address &&
+                              copyToClipboard(accountStore.account.address)
+                          "
+                          class="q-ml-sm"
+                          flat
+                          dense
+                          round
+                        />
+                      </div>
+                      <div class="row q-gutter-sm">
+                        <q-btn
+                          v-if="accountStore.account === undefined"
+                          label="Connect"
+                          color="primary"
+                          @click="connectWallet"
+                          v-close-popup
+                        />
+                        <q-btn
+                          v-else
+                          label="Disconnect"
+                          color="negative"
+                          flat
+                          rounded
+                          @click="walletDisconnect.execute()"
+                          v-close-popup
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </q-btn-dropdown>
+
+                <q-input
+                  v-if="accountStore.account !== undefined"
+                  label="to"
+                  v-model="to"
+                  dense
+                  class="col"
+                />
+                <q-btn
+                  label="mint"
+                  @click="onMintClick"
+                  icon="send"
+                  color="primary"
+                  dense
+                  no-caps
+                />
+              </div>
+            </template>
+          </PokedexEditor>
         </div>
       </template>
       <template #after>
         <div class="row no-wrap" style="height: 100vh">
           <div class="column" style="flex: 1; min-width: 0; height: 100%">
-            <div class="row q-pa-md items-center wrap" style="flex-shrink: 0">
-              <q-btn-dropdown
-                ref="walletDropdownRef"
-                flat
-                rounded
-                :class="
-                  accountStore.account === undefined
-                    ? 'col-12 col-sm q-pr-md'
-                    : ''
-                "
-              >
-                <template v-slot:label>
-                  <span
-                    style="
-                      max-width: 12em;
-                      text-overflow: ellipsis;
-                      overflow: hidden;
-                    "
-                  >
-                    {{ accountStore.account?.address ?? 'Connect Wallet' }}
-                  </span>
-                </template>
-                <div class="q-pa-md column" style="min-width: 280px">
-                  <div class="q-mb-md">
-                    <q-select
-                      v-model="selectedWallet"
-                      :options="walletOptions"
-                      label="Wallet Provider"
-                      dense
-                    />
-                  </div>
-                  <div
-                    v-if="accountStore.account !== undefined"
-                    class="row col items-center q-mb-md"
-                  >
-                    <q-input
-                      :model-value="accountStore.account.address"
-                      readonly
-                      dense
-                    />
-                    <q-btn
-                      round
-                      flat
-                      size="10px"
-                      icon="content_copy"
-                      @click="
-                        accountStore.account?.address &&
-                          copyToClipboard(accountStore.account.address)
-                      "
-                      class="q-ml-sm"
-                    />
-                  </div>
-                  <div class="row q-gutter-sm">
-                    <q-btn
-                      v-if="accountStore.account === undefined"
-                      label="Connect"
-                      color="primary"
-                      @click="connectWallet"
-                      v-close-popup
-                    />
-                    <q-btn
-                      v-else
-                      label="Disconnect"
-                      color="negative"
-                      flat
-                      rounded
-                      @click="walletDisconnect.execute()"
-                      v-close-popup
-                    />
-                  </div>
-                </div>
-              </q-btn-dropdown>
-
-              <q-input
-                v-if="accountStore.account !== undefined"
-                label="to"
-                v-model="to"
-                class="col-12 col-sm q-pr-md"
-              />
-              <q-btn
-                label="mint"
-                @click="onMintClick"
-                icon="send"
-                color="primary"
-              />
-            </div>
-
             <div
               v-if="rightTab === 'json'"
               class="q-pa-md"
@@ -122,7 +120,7 @@
               v-else-if="rightTab === 'flow'"
               style="flex: 1; overflow: auto; min-height: 0"
             >
-              <NftInputsFlow v-model="value" />
+              <NftInputsFlow v-model="value" @open-ai-settings="rightTab = 'ai'" />
             </div>
 
             <div
@@ -138,8 +136,8 @@
               class="q-pa-md"
               style="flex: 1; overflow: auto; min-height: 0"
             >
-              <AISettingsPanel />
-              <AIChatPanel />
+              <AISettingsPanel :has-messages="aiChatHasMessages" />
+              <AIChatPanel @messages-changed="aiChatHasMessages = $event > 0" />
             </div>
 
             <div
@@ -179,8 +177,8 @@
               indicator-color="primary"
             >
               <q-tab name="ai" icon="psychology" label="AI" />
-              <q-tab name="flow" icon="hub" label="Flow" />
-              <q-tab v-if="isAiConfigured" name="eco" icon="eco" label="Eco" />
+              <q-tab v-if="selectedTarget === 'instance'" name="flow" icon="hub" label="Flow" />
+              <q-tab v-if="isAiConfigured && selectedTarget === 'instance'" name="eco" icon="eco" label="Eco" />
               <q-tab
                 v-if="accountStore.account"
                 name="tm-list"
@@ -232,6 +230,7 @@ const value: Ref<Pokedex> = ref(clone(defaultPokedex));
 const rightTab = ref<'json' | 'flow' | 'tm-list' | 'wizard' | 'ai' | 'eco'>(
   'ai'
 );
+const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
 const jsonText = ref(JSON.stringify(value.value, undefined, 2));
 const hasJsonError = ref(false);
 const jsonError = ref('');
@@ -350,8 +349,34 @@ const DEBUG_SAMPLE_INSTANCE = {
   },
 };
 
+function normalizeInputInstances(instance: any): void {
+  if (!instance || typeof instance !== 'object') return;
+
+  // Recursively normalize inputInstances in process
+  if (instance.process && Array.isArray(instance.process.inputInstances)) {
+    instance.process.inputInstances = instance.process.inputInstances.map(
+      (inp: any) => {
+        if (!inp.type) {
+          // Add type: 'local' if missing
+          return {
+            type: 'local',
+            ...inp,
+          };
+        }
+        return inp;
+      }
+    );
+  }
+}
+
 function applyInstance(newInstance: any) {
   console.log('[NftEditor] updateInstance called with:', newInstance);
+
+  // Normalize inputInstances to ensure they have type field
+  if (newInstance && typeof newInstance === 'object') {
+    normalizeInputInstances(newInstance);
+  }
+
   // Directly mutate the instance property of the Pokedex object
   value.value.instance = newInstance;
 
@@ -385,10 +410,10 @@ const decompositionStore = useDecompositionStore();
 const accountStore = useAccountStore();
 
 const isAiConfigured = ref(false);
+const aiChatHasMessages = ref(false);
 
 function refreshAiConfig() {
-  const c = aiConfigStorage.getConfig();
-  isAiConfigured.value = !!(c && c.enabled && c.apiKey && c.validated);
+  isAiConfigured.value = aiConfigStorage.isConfigured();
 }
 
 onMounted(() => {
@@ -432,6 +457,16 @@ watch(rightTab, (tab) => {
     decompositionStore.closeWizard();
   }
 });
+
+watch(
+  selectedTarget,
+  (next) => {
+    if (next !== 'instance' && (rightTab.value === 'flow' || rightTab.value === 'eco')) {
+      rightTab.value = 'json';
+    }
+  },
+  { immediate: true }
+);
 
 // Update JSON text when value changes from form
 watch(
@@ -532,10 +567,8 @@ async function connectWallet() {
   try {
     let wallet;
     if (selectedWallet.value === 'walletConnect') {
-      wallet = createWallet('walletConnect', {
-        projectId: process.env.NEXT_PUBLIC_TW_CLIENT_ID,
-        appUrl: window.location.origin,
-      });
+      // Use default configuration which relies on accountStore.client via connect()
+      wallet = createWallet('walletConnect');
     } else {
       wallet = createWallet('io.metamask');
     }

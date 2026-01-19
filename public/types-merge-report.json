@@ -1,0 +1,179 @@
+{
+  "addedFields": [
+    {
+      "type": "FetchError",
+      "field": "errorMessage",
+      "fieldType": "string"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "timestamp",
+      "fieldType": "number"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "duration",
+      "fieldType": "number"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "facility",
+      "fieldType": "Facility"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "temperatureRange",
+      "fieldType": "TemperatureRange"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "inputInstances",
+      "fieldType": "(TransportedInputInstance | LocalInputInstance)[]"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "impacts",
+      "fieldType": "Impact[]"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "price",
+      "fieldType": "Price"
+    },
+    {
+      "type": "PrintingProcess",
+      "field": "type",
+      "fieldType": "\"printing\""
+    },
+    {
+      "type": "MillingProcess",
+      "field": "type",
+      "fieldType": "\"milling\""
+    },
+    {
+      "type": "FreezeDryingProcess",
+      "field": "type",
+      "fieldType": "\"freezedrying\""
+    },
+    {
+      "type": "BlendingProcess",
+      "field": "type",
+      "fieldType": "\"blending\""
+    },
+    {
+      "type": "SaleProcess",
+      "field": "type",
+      "fieldType": "\"sale\""
+    },
+    {
+      "type": "HarvestProcess",
+      "field": "type",
+      "fieldType": "\"harvest\""
+    },
+    {
+      "type": "LabelTaggerProcess",
+      "field": "type",
+      "fieldType": "\"labeltagger\""
+    },
+    {
+      "type": "GenericInputInstance",
+      "field": "instance",
+      "fieldType": "TokenIdOr<ProductInstance>"
+    },
+    {
+      "type": "GenericInputInstance",
+      "field": "quantity",
+      "fieldType": "number"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "type",
+      "fieldType": "string"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "ownerId",
+      "fieldType": "string"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "expiryDate",
+      "fieldType": "number"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "bio",
+      "fieldType": "boolean"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "quantity",
+      "fieldType": "number"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "price",
+      "fieldType": "Price"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "title",
+      "fieldType": "string"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "description",
+      "fieldType": "string"
+    },
+    {
+      "type": "ProductInstanceBase",
+      "field": "pictureURL",
+      "fieldType": "string"
+    },
+    {
+      "type": "FoodInstance",
+      "field": "category",
+      "fieldType": "\"food\""
+    },
+    {
+      "type": "NonFoodInstance",
+      "field": "category",
+      "fieldType": "\"non-food\""
+    },
+    {
+      "type": "NonFoodInstance",
+      "field": "process",
+      "fieldType": "Process"
+    },
+    {
+      "type": "CartridgeInstance",
+      "field": "category",
+      "fieldType": "\"cartridge\""
+    },
+    {
+      "type": "GenericImpact",
+      "field": "ownerId",
+      "fieldType": "string"
+    },
+    {
+      "type": "GenericImpact",
+      "field": "format",
+      "fieldType": "string"
+    },
+    {
+      "type": "GenericImpact",
+      "field": "quantity",
+      "fieldType": "number"
+    },
+    {
+      "type": "CarbonImpact",
+      "field": "category",
+      "fieldType": "\"carbon\""
+    },
+    {
+      "type": "WaterImpact",
+      "field": "category",
+      "fieldType": "\"water\""
+    }
+  ]
+}

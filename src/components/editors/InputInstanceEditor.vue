@@ -27,4 +27,12 @@ watch(
     }
   }
 );
+
+watch(
+  value,
+  (newVal) => {
+    emit('update:modelValue', newVal);
+  },
+  { deep: true }
+);
 </script>

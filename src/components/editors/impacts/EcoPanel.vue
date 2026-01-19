@@ -82,27 +82,40 @@
               <q-tooltip>{{ item.warning }}</q-tooltip>
             </q-icon>
           </td>
-          <td class="text-right">{{ item.percentage.toFixed(1) }}%</td>
-          <td class="text-right">{{ item.impact.toFixed(3) }}</td>
           <td class="text-right">
-            <span v-if="item.impactMin !== null && item.impactMax !== null">
-              {{ item.impactMin.toFixed(3) }} – {{ item.impactMax.toFixed(3) }}
-            </span>
-            <span v-else>—</span>
+            <q-spinner-dots v-if="loading" size="1em" />
+            <span v-else>{{ item.percentage.toFixed(1) }}%</span>
+          </td>
+          <td class="text-right">
+            <q-spinner-dots v-if="loading" size="1em" />
+            <span v-else>{{ item.impact.toFixed(3) }}</span>
+          </td>
+          <td class="text-right">
+            <q-spinner-dots v-if="loading" size="1em" />
+            <template v-else>
+              <span v-if="item.impactMin !== null && item.impactMax !== null">
+                {{ item.impactMin.toFixed(3) }} –
+                {{ item.impactMax.toFixed(3) }}
+              </span>
+              <span v-else>—</span>
+            </template>
           </td>
           <td class="text-left">
-            <span>{{ item.source ?? '—' }}</span>
-            <q-btn
-              v-if="item.sourceUrl"
-              dense
-              flat
-              icon="open_in_new"
-              size="sm"
-              :href="item.sourceUrl"
-              target="_blank"
-              rel="noopener"
-              class="q-ml-xs"
-            />
+            <q-spinner-dots v-if="loading" size="1em" />
+            <template v-else>
+              <span>{{ item.source ?? '—' }}</span>
+              <q-btn
+                v-if="item.sourceUrl"
+                dense
+                flat
+                icon="open_in_new"
+                size="sm"
+                :href="item.sourceUrl"
+                target="_blank"
+                rel="noopener"
+                class="q-ml-xs"
+              />
+            </template>
           </td>
         </tr>
         <tr v-if="displayBreakdown.length === 0">

@@ -3,6 +3,9 @@
 /src-cordova
 /.quasar
 /node_modules
+../tm-types
+../tm-types/**
+**/tm-types/**
 .eslintrc.js
 /src-ssr
 /quasar.config.*.temporary.compiled*

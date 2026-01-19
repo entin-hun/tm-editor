@@ -1,4 +1,6 @@
 import { aiConfigStorage } from './ai/AIConfigStorage';
+import { selectModelForTask } from 'src/config/aiConfig';
+import type { TaskType } from 'src/config/aiConfig';
 
 const NON_FOOD_DECOMPOSE_URL = 'https://add.trace.market/decompose/non-food';
 const NON_FOOD_CARBON_URL = 'https://add.trace.market/suggest/non-food';
@@ -39,12 +41,15 @@ function buildHeaders(): Record<string, string> {
     'Content-Type': 'application/json',
   };
 
-  const config = aiConfigStorage.getConfig();
-  if (config?.apiKey) {
-    headers.Authorization = `Bearer ${config.apiKey}`;
-    if ((config as any)?.provider) {
-      headers['x-ai-provider'] = String((config as any).provider);
-    }
+  const apiKey = aiConfigStorage.getActiveApiKey();
+  const provider = aiConfigStorage.getActiveProvider();
+
+  if (apiKey && provider) {
+    headers.Authorization = `Bearer ${apiKey}`;
+    headers['x-ai-provider'] = provider;
+    // Automatically select best model for generation task
+    const bestModel = selectModelForTask(provider, 'generation' as TaskType);
+    headers['x-ai-model'] = bestModel;
   }
 
   return headers;

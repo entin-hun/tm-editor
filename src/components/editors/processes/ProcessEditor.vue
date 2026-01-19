@@ -1,7 +1,11 @@
 <template>
   <q-card class="q-pa-md" dark>
     <div class="column">
-      <GenericProcessEditor v-model="model" />
+      <GenericProcessEditor
+        v-model="model"
+        :show-temperature-range="showTemperatureRange"
+        :show-input-instances="showInputInstances"
+      />
     </div>
   </q-card>
 </template>
@@ -12,7 +16,14 @@ import { ref } from 'vue';
 
 import GenericProcessEditor from './GenericProcessEditor.vue';
 
-const props = defineProps<{ modelValue: Process }>();
+const props = defineProps<{
+  modelValue: Process;
+  showTemperatureRange?: boolean;
+  showInputInstances?: boolean;
+}>();
+
+const showTemperatureRange = props.showTemperatureRange ?? true;
+const showInputInstances = props.showInputInstances ?? false;
 
 const model = ref(props.modelValue);
 </script>

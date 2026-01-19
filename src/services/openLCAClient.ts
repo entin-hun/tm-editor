@@ -7,6 +7,9 @@
 import axios from 'axios';
 import type { Pokedex } from '@trace.market/types';
 import { convertToOpenLCA, exportProcesses } from './openLCATransformer';
+import { aiConfigStorage } from './ai/AIConfigStorage';
+import { selectModelForTask } from 'src/config/aiConfig';
+import type { TaskType } from 'src/config/aiConfig';
 
 const OPENLCA_API_URL = 'https://lca.trace.market/result/calculate';
 
@@ -14,6 +17,25 @@ export interface OpenLCACalculationResult {
   success: boolean;
   data?: unknown;
   error?: string;
+}
+
+function buildHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const apiKey = aiConfigStorage.getActiveApiKey();
+  const provider = aiConfigStorage.getActiveProvider();
+
+  if (apiKey && provider) {
+    headers.Authorization = `Bearer ${apiKey}`;
+    headers['x-ai-provider'] = provider;
+    // Automatically select best model for generation task
+    const bestModel = selectModelForTask(provider, 'generation' as TaskType);
+    headers['x-ai-model'] = bestModel;
+  }
+
+  return headers;
 }
 
 /**
@@ -34,20 +56,26 @@ export async function calculateImpacts(
     }
 
     // Send to openLCA API for calculation
-    const response = await axios.post(OPENLCA_API_URL, {
-      productSystem,
-      // Add calculation parameters
-      calculationSetup: {
-        impactMethod: {
-          '@type': 'ImpactMethod',
-          '@id': 'default-method-id', // Would need to be configured
-          name: 'Default Impact Method',
+    const response = await axios.post(
+      OPENLCA_API_URL,
+      {
+        productSystem,
+        // Add calculation parameters
+        calculationSetup: {
+          impactMethod: {
+            '@type': 'ImpactMethod',
+            '@id': 'default-method-id', // Would need to be configured
+            name: 'Default Impact Method',
+          },
+          allocationMethod: 'PHYSICAL_ALLOCATION',
+          withCosts: true,
+          withRegionalization: false,
         },
-        allocationMethod: 'PHYSICAL_ALLOCATION',
-        withCosts: true,
-        withRegionalization: false,
       },
-    });
+      {
+        headers: buildHeaders(),
+      }
+    );
 
     return {
       success: true,

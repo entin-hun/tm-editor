@@ -1,5 +1,5 @@
 <template>
-  <GenericProcessEditor v-model="value" />
+  <GenericProcessEditor v-model="value" :food-labels="foodLabels" />
 </template>
 
 <script setup lang="ts">
@@ -9,7 +9,11 @@ import GenericProcessEditor from './GenericProcessEditor.vue';
 import { ref, watch } from 'vue';
 import { clone, defaultHarvestProcess } from '../defaults';
 
-const props = defineProps<{ modelValue: HarvestProcess | undefined }>();
+const props = defineProps<{
+  modelValue: HarvestProcess | undefined;
+  foodLabels?: boolean;
+}>();
+const foodLabels = props.foodLabels ?? false;
 
 const value = ref(props.modelValue ?? clone(defaultHarvestProcess));
 

@@ -2,20 +2,34 @@
   <div class="flow-root" ref="rootEl" @focusout="onFocusOut">
     <div class="q-pa-md" style="flex-shrink: 0">
       <q-card flat bordered class="q-pa-md">
-        <div class="text-subtitle2">Inputs</div>
-        <div class="text-caption">
-          {{ inputInstances.length }} inputs for {{ outputLabel }} ·
-          {{ totalQuantity.toFixed(3) }} total qty
-        </div>
-        <div
-          v-if="Object.keys(costByCurrency).length"
-          class="text-caption q-mt-xs"
-        >
-          <div v-for="(amount, currency) in costByCurrency" :key="currency">
-            Total cost: {{ amount.toFixed(2) }} {{ currency }}
+        <div class="row items-center justify-between">
+          <div>
+            <div class="text-subtitle2">Inputs</div>
+            <div class="text-caption">
+              {{ inputInstances.length }} inputs for {{ outputLabel }} ·
+              {{ totalQuantity.toFixed(3) }} total qty
+            </div>
+            <div
+              v-if="Object.keys(costByCurrency).length"
+              class="text-caption q-mt-xs"
+            >
+              <div v-for="(amount, currency) in costByCurrency" :key="currency">
+                Total cost: {{ amount.toFixed(2) }} {{ currency }}
+              </div>
+            </div>
+            <div v-else class="text-caption q-mt-xs">Total cost: —</div>
+          </div>
+          <div class="row items-center q-gutter-sm">
+            <q-btn
+              flat
+              color="primary"
+              label="Enrich"
+              :loading="isLoading"
+              @click="handleEnrichClick"
+            />
+            <q-spinner v-if="isLoading" color="primary" size="2em" />
           </div>
         </div>
-        <div v-else class="text-caption q-mt-xs">Total cost: —</div>
       </q-card>
     </div>
 
@@ -74,12 +88,26 @@
             opacity: 0.8;
             border-radius: 8px;
           "
-          @click="addMissingInput"
         >
           <q-icon name="add_circle" size="sm" color="warning" />
           <div class="text-warning">
-            Add remaining {{ missingQuantity.toFixed(2) }} (Click to fix)
+            Add remaining {{ missingQuantity.toFixed(2) }}
           </div>
+          <q-select
+            v-model="missingCategory"
+            :options="missingCategoryOptions"
+            dense
+            outlined
+            style="min-width: 160px"
+            @click.stop
+          />
+          <q-btn
+            dense
+            flat
+            color="warning"
+            label="Add"
+            @click="addMissingInput"
+          />
         </div>
       </div>
     </div>
@@ -103,10 +131,12 @@ import {
   type SuggestionParams,
 } from 'src/services/ai/AiInputSuggester';
 import { fetchNonFoodDecomposition } from 'src/services/nonFoodService';
+import { useSchemaStore } from 'src/stores/schemaStore';
 
 const props = defineProps<{ modelValue: Pokedex }>();
 const emit = defineEmits<{
   (e: 'update:modelValue', value: Pokedex): void;
+  (e: 'open-ai-settings'): void;
 }>();
 
 const value = ref<Pokedex>(props.modelValue);
@@ -184,11 +214,31 @@ const suggesting = ref(false);
 const lastQuery = ref<string | null>(null);
 const suppressedTypes = ref<Set<string>>(new Set());
 const dirtySinceBlur = ref(false);
+const isLoading = computed(() => suggesting.value);
+const schemaStore = useSchemaStore();
+
+const missingCategory = ref('food');
+const missingCategoryOptions = computed(() => {
+  const desc = schemaStore.getFieldDescription('ProductInstance', 'category');
+  const examples = desc?.examples?.length
+    ? desc.examples.filter((item) => item !== 'cartridge')
+    : ['food', 'non-food'];
+  return examples.length ? examples : ['food', 'non-food'];
+});
 
 function logSuggest(message: string, extra?: unknown) {
   // Browser console visibility for AI suggestion flow
   // eslint-disable-next-line no-console
   console.log('[InputsFlow][AI]', message, extra ?? '');
+}
+
+async function handleEnrichClick() {
+  if (suggesting.value) return;
+  if (!aiReady.value) {
+    emit('open-ai-settings');
+    return;
+  }
+  await maybeSuggest();
 }
 
 function refreshAiReady() {
@@ -398,8 +448,8 @@ function buildNonFoodPayload(
     (payload.description as string);
 
   const idsQuery = Array.isArray(payload.ids)
-    ? (payload.ids as Array<{ id?: string }>).find((item) =>
-        typeof item?.id === 'string' && item.id.trim().length
+    ? (payload.ids as Array<{ id?: string }>).find(
+        (item) => typeof item?.id === 'string' && item.id.trim().length
       )?.id
     : undefined;
 
@@ -509,7 +559,6 @@ function onFocusOut(event: FocusEvent) {
   }
   if (!dirtySinceBlur.value) return;
   dirtySinceBlur.value = false;
-  maybeSuggest();
 }
 
 function toggleExpand(index: number) {
@@ -594,13 +643,14 @@ function addMissingInput() {
   const proc = ensureProcessWithInputs();
   if (!proc) return;
   const qty = missingQuantity.value;
+  const category = missingCategory.value || 'food';
 
   proc.inputInstances.push({
     type: 'local',
     quantity: qty,
     priceShare: 0,
     instance: {
-      category: 'food',
+      category,
       type: 'New Ingredient',
       quantity: 1000,
     } as any,
@@ -652,7 +702,6 @@ watch(
 onMounted(() => {
   refreshAiReady();
   window.addEventListener('ai-config-updated', refreshAiReady);
-  maybeSuggest();
 });
 
 watch(

@@ -58,6 +58,10 @@ export class GroqEmbeddingProvider extends EmbeddingProvider {
         max_tokens: 50,
       };
 
+      console.log(
+        `[GroqEmbedding] Requesting pseudo-embedding via chat for: ${text}`
+      );
+
       const response = await this.client.post<GroqChatResponse>(
         '/chat/completions',
         request
@@ -98,6 +102,36 @@ export class GroqEmbeddingProvider extends EmbeddingProvider {
           error instanceof Error ? error.message : 'Unknown error'
         }`
       );
+    }
+  }
+
+  /**
+   * Override validation to check API key against chat endpoint
+   * since Groq doesn't support embeddings.
+   */
+  async validate(): Promise<boolean> {
+    try {
+      console.log(
+        `[GroqEmbeddingProvider] Validating API key via chat completion...`
+      );
+
+      // Use a small model for validation
+      const validationModel = 'llama-3.1-8b-instant';
+
+      const response = await this.client.post<GroqChatResponse>(
+        '/chat/completions',
+        {
+          model: validationModel,
+          messages: [{ role: 'user', content: 'Hello' }],
+          max_tokens: 1,
+        }
+      );
+
+      console.log(`[GroqEmbeddingProvider] Validation successful`);
+      return true;
+    } catch (error) {
+      console.error('[GroqEmbeddingProvider] key validation failed:', error);
+      return false;
     }
   }
 

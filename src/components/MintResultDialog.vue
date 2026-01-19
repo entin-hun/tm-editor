@@ -42,7 +42,7 @@ import { useDialogPluginComponent, copyToClipboard, openURL } from 'quasar';
 const props = defineProps<{ tokenId: string }>();
 
 const link = `${process.env.EXPLORER_URL}${BigInt(props.tokenId).toString()}`;
-const packageLink = `${process.env.PACKAGE_URL}${props.tokenId}`;
+const packageLink = `${process.env.PACKAGE_URL}/?tokenId=${props.tokenId}`;
 
 defineEmits(useDialogPluginComponent.emits);
 

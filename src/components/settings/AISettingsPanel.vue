@@ -1,314 +1,287 @@
 <template>
-  <q-card class="ai-settings-panel">
-    <q-card-section>
-      <div class="text-h6">AI Semantic Search</div>
-      <div class="text-caption text-grey-7">
-        Enable AI-powered semantic similarity search for better product matching
-      </div>
-    </q-card-section>
-
-    <q-separator />
-
-    <q-card-section>
-      <q-select
-        v-model="provider"
-        :options="providerOptions"
-        label="AI Provider"
-        filled
-        emit-value
-        map-options
-        @update:model-value="handleProviderChange"
-      >
-        <template v-slot:prepend>
-          <q-icon name="cloud" />
-        </template>
-      </q-select>
-
-      <q-input
-        v-model="apiKey"
-        label="API Key"
-        filled
-        :type="showApiKey ? 'text' : 'password'"
-        class="q-mt-md"
-        hint="Your API key is stored locally and never sent to our servers"
-      >
-        <template v-slot:prepend>
-          <q-icon name="key" />
-        </template>
-        <template v-slot:append>
-          <q-icon
-            :name="showApiKey ? 'visibility_off' : 'visibility'"
-            class="cursor-pointer"
-            @click="showApiKey = !showApiKey"
-          />
-        </template>
-      </q-input>
-
-      <!-- Model selector hidden for now, may be needed later
-      <q-select
-        v-model="model"
-        :options="availableModels"
-        label="Model"
-        filled
-        option-label="displayName"
-        option-value="name"
-        emit-value
-        map-options
-        class="q-mt-md"
-      >
-        <template v-slot:prepend>
-          <q-icon name="psychology" />
-        </template>
-        <template v-slot:option="scope">
-          <q-item v-bind="scope.itemProps">
-            <q-item-section>
-              <q-item-label>{{ scope.opt.displayName }}</q-item-label>
-              <q-item-label caption>{{ scope.opt.cost }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </template>
-      </q-select>
-      -->
-    </q-card-section>
-
-    <q-separator v-if="apiKey.trim().length > 0" />
-
-    <q-card-actions v-if="apiKey.trim().length > 0" align="right">
-      <q-btn
-        flat
-        label="Test Connection"
-        color="primary"
-        icon="check_circle"
-        :loading="testing"
-        :disable="!canTest"
-        @click="testConnection"
-      />
-      <q-btn
-        flat
-        label="Save"
-        color="primary"
-        icon="save"
-        :disable="!canSave"
-        @click="saveConfig"
-      />
-      <q-btn
-        flat
-        label="Clear Cache"
-        color="warning"
-        icon="delete_sweep"
-        @click="clearCache"
-      />
-    </q-card-actions>
-
-    <q-card-section v-if="lastValidated">
-      <q-banner
-        :class="validationSuccess ? 'bg-positive' : 'bg-negative'"
-        class="text-white"
-        rounded
-        dense
-      >
-        <template v-slot:avatar>
-          <q-icon
-            :name="validationSuccess ? 'check_circle' : 'error'"
-            color="white"
-          />
-        </template>
-        <div v-if="validationSuccess">
-          API key validated successfully on {{ formatDate(lastValidated) }}
+  <q-expansion-item
+    v-model="expanded"
+    label="AI Configuration"
+    icon="settings"
+    caption="Configure AI provider API keys"
+    dense
+    class="ai-settings-expansion"
+  >
+    <q-card flat>
+      <q-card-section class="q-pa-sm">
+        <div class="q-gutter-sm">
+          <!-- Provider API Key Inputs -->
+          <q-input
+            v-for="providerOption in providerOptions"
+            :key="providerOption.value"
+            :model-value="apiKeys[providerOption.value]"
+            :label="`${providerOption.label} API Key`"
+            dense
+            outlined
+            :type="showApiKeys[providerOption.value] ? 'text' : 'password'"
+            :loading="validating[providerOption.value]"
+            :hint="getProviderHint(providerOption.value)"
+            @update:model-value="
+              (val) => updateApiKey(providerOption.value, val)
+            "
+            @blur="() => handleApiKeyBlur(providerOption.value)"
+          >
+            <template v-slot:prepend>
+              <q-icon :name="providerOption.icon" size="xs" />
+            </template>
+            <template v-slot:append>
+              <q-badge
+                v-if="getProviderStatus(providerOption.value)"
+                :color="getProviderStatus(providerOption.value)!.color"
+                :label="getProviderStatus(providerOption.value)!.label"
+                class="q-mr-xs"
+              />
+              <q-icon
+                v-if="apiKeys[providerOption.value]"
+                :name="
+                  showApiKeys[providerOption.value]
+                    ? 'visibility_off'
+                    : 'visibility'
+                "
+                class="cursor-pointer"
+                size="xs"
+                @click="
+                  showApiKeys[providerOption.value] =
+                    !showApiKeys[providerOption.value]
+                "
+              />
+              <q-icon
+                v-if="apiKeys[providerOption.value]"
+                name="close"
+                class="cursor-pointer q-ml-xs"
+                size="xs"
+                @click="clearApiKey(providerOption.value)"
+              >
+                <q-tooltip>Clear this API key</q-tooltip>
+              </q-icon>
+            </template>
+          </q-input>
         </div>
-        <div v-else>Validation failed: {{ lastError || 'Unknown error' }}</div>
-      </q-banner>
-    </q-card-section>
-  </q-card>
+      </q-card-section>
+    </q-card>
+  </q-expansion-item>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import type { AIProvider, AIModel } from '../../types/ai';
-import { AI_MODELS, DEFAULT_MODELS } from '../../config/aiConfig';
+import { ref, reactive, computed, onMounted } from 'vue';
+import type { AIProvider } from '../../types/ai';
+import { selectModelForTask, AI_MODELS } from '../../config/aiConfig';
+import type { TaskType } from '../../config/aiConfig';
 import { aiConfigStorage } from '../../services/ai/AIConfigStorage';
 import { semanticSearchEngine } from '../../services/SemanticSearchEngine';
 import { useQuasar } from 'quasar';
 
 const $q = useQuasar();
 
-// State
-const enabled = ref(false);
-const provider = ref<AIProvider>('gemini');
-const apiKey = ref('');
-const model = ref('');
-const showApiKey = ref(false);
-const testing = ref(false);
-const lastValidated = ref<string | undefined>();
-const lastError = ref<string | undefined>();
+// Props
+const props = defineProps<{
+  hasMessages?: boolean;
+}>();
 
-// Load config on mount
-onMounted(() => {
-  const config = aiConfigStorage.getConfig();
-  if (config) {
-    enabled.value = true; // Always enabled
-    provider.value = config.provider;
-    apiKey.value = config.apiKey || '';
-    model.value = config.model;
-    // Only surface validation info if it was actually validated
-    lastValidated.value = config.validated ? config.lastValidated : undefined;
-    lastError.value = config.validated ? config.lastError : undefined;
-  } else {
-    // Set defaults
-    enabled.value = true; // Always enabled
-    model.value = DEFAULT_MODELS[provider.value];
-  }
-});
+// State
+const apiKeys = reactive<Partial<Record<AIProvider, string>>>({});
+const showApiKeys = reactive<Partial<Record<AIProvider, boolean>>>({});
+const validating = reactive<Partial<Record<AIProvider, boolean>>>({});
+const expanded = ref(true);
 
 // Provider options
 const providerOptions = [
-  { label: 'Gemini (Recommended)', value: 'gemini', icon: 'auto_awesome' },
-  { label: 'OpenRouter', value: 'openrouter', icon: 'hub' },
-  { label: 'Groq', value: 'groq', icon: 'speed' },
+  { label: 'Gemini', value: 'gemini' as AIProvider, icon: 'auto_awesome' },
+  { label: 'Groq', value: 'groq' as AIProvider, icon: 'speed' },
+  { label: 'OpenRouter', value: 'openrouter' as AIProvider, icon: 'hub' },
 ];
 
-// Available models for selected provider
-const availableModels = computed(() => {
-  return AI_MODELS[provider.value].map((m: AIModel) => ({
-    ...m,
-    value: m.name,
-    label: m.displayName,
-  }));
-});
-
-// Validation
-const canTest = computed(() => {
-  return (
-    apiKey.value.trim().length > 0 && model.value.length > 0
+// Load config on mount
+function hasValidatedKey(): boolean {
+  const config = aiConfigStorage.getConfig();
+  if (!config || !config.providers) return false;
+  return providerOptions.some(
+    (p) => config.providers[p.value]?.validated === true
   );
-});
-
-const canSave = computed(() => {
-  return canTest.value;
-});
-
-const validationSuccess = computed(() => {
-  return lastValidated.value !== undefined && !lastError.value;
-});
-
-// Handlers
-function handleProviderChange(value: AIProvider) {
-  // Reset model to default for new provider
-  model.value = DEFAULT_MODELS[value];
-  lastValidated.value = undefined;
-  lastError.value = undefined;
 }
 
-async function testConnection() {
-  if (!canTest.value) return;
+function refreshFromStorage() {
+  const config = aiConfigStorage.getConfig();
+  if (config && config.providers) {
+    providerOptions.forEach((p) => {
+      const providerConfig = config.providers[p.value];
+      if (providerConfig) {
+        apiKeys[p.value] = providerConfig.apiKey || '';
+      }
+    });
+  }
+  if (hasValidatedKey()) {
+    expanded.value = false;
+  }
+}
 
-  testing.value = true;
-  lastError.value = undefined;
+onMounted(() => {
+  refreshFromStorage();
+});
+
+// Update API key in state (doesn't save yet)
+function updateApiKey(provider: AIProvider, value: string | number | null) {
+  apiKeys[provider] = String(value || '');
+}
+
+// Auto-validate on blur
+async function handleApiKeyBlur(provider: AIProvider) {
+  const key = apiKeys[provider]?.trim();
+
+  // If empty, clear the provider
+  if (!key) {
+    if (aiConfigStorage.getProviderConfig(provider)) {
+      clearApiKey(provider);
+    }
+    return;
+  }
+
+  // Don't re-validate if already validated with same key
+  const existingConfig = aiConfigStorage.getProviderConfig(provider);
+  if (
+    existingConfig &&
+    existingConfig.apiKey === key &&
+    existingConfig.validated
+  ) {
+    return;
+  }
+
+  // Auto-validate
+  validating[provider] = true;
 
   try {
-    // Save config temporarily
-    const config = aiConfigStorage.createDefaultConfig(
-      provider.value,
-      apiKey.value
+    console.log(
+      `[AISettings] Starting validation for ${provider} with key: ${key.substring(
+        0,
+        10
+      )}...`
     );
-    config.model = model.value;
-    aiConfigStorage.saveConfig(config);
 
-    // Validate
+    // Temporarily save the key for validation
+    aiConfigStorage.updateProvider(provider, key);
+    console.log(`[AISettings] Key saved to storage`);
+
+    // Set as active provider for validation
+    let config = aiConfigStorage.getConfig();
+    if (config) {
+      config.activeProvider = provider;
+      aiConfigStorage.saveConfig(config);
+      console.log(`[AISettings] Active provider set to ${provider}`);
+    }
+
+    // Validate using semantic search engine
+    console.log(`[AISettings] Calling semanticSearchEngine.validateConfig()`);
     const isValid = await semanticSearchEngine.validateConfig();
-
-    // Persist validation result
-    if (!isValid && !lastError.value) {
-      lastError.value = 'Validation failed';
-    }
-    aiConfigStorage.markValidated(isValid, lastError.value);
-
-    // Reload config to get validation status
-    const updatedConfig = aiConfigStorage.getConfig();
-    if (updatedConfig) {
-      lastValidated.value = updatedConfig.lastValidated;
-      lastError.value = updatedConfig.lastError;
-    }
+    console.log(`[AISettings] Validation result: ${isValid}`);
 
     if (isValid) {
+      // Mark as validated
+      aiConfigStorage.updateProvider(provider, key, true);
+      console.log(`[AISettings] Marked as validated`);
+
+      expanded.value = false;
+
       $q.notify({
         type: 'positive',
-        message: 'API key validated successfully!',
+        message: `${
+          providerOptions.find((p) => p.value === provider)?.label
+        } API key validated successfully`,
         position: 'top',
+        timeout: 2000,
       });
     } else {
+      // Mark as invalid but keep the key for user to fix
+      const providerConfig = aiConfigStorage.getProviderConfig(provider);
+      const errorMsg = providerConfig?.lastError || 'Invalid API key';
+      aiConfigStorage.updateProvider(provider, key, false, errorMsg);
+      console.log(`[AISettings] Marked as invalid: ${errorMsg}`);
+
       $q.notify({
         type: 'negative',
-        message: `Validation failed: ${lastError.value || 'Unknown error'}`,
+        message: `Invalid API key for ${
+          providerOptions.find((p) => p.value === provider)?.label
+        }: ${errorMsg}`,
         position: 'top',
+        timeout: 3000,
       });
     }
   } catch (error) {
-    console.error('Test connection failed:', error);
-    lastError.value = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[AISettings] Validation failed:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    aiConfigStorage.updateProvider(provider, key, false, errorMsg);
+
     $q.notify({
       type: 'negative',
-      message: `Test failed: ${lastError.value}`,
+      message: `Validation failed: ${errorMsg}`,
       position: 'top',
+      timeout: 3000,
     });
   } finally {
-    window.dispatchEvent(new CustomEvent('ai-config-updated'));
-    testing.value = false;
+    validating[provider] = false;
   }
 }
 
-function saveConfig() {
-  if (!canSave.value) return;
+// Clear API key for a provider
+function clearApiKey(provider: AIProvider) {
+  apiKeys[provider] = '';
+  aiConfigStorage.clearProvider(provider);
 
-  try {
-    const config = aiConfigStorage.createDefaultConfig(
-      provider.value,
-      apiKey.value
-    );
-    config.model = model.value;
-    config.enabled = true; // Always enabled
-    aiConfigStorage.saveConfig(config);
-
-    $q.notify({
-      type: 'positive',
-      message: 'AI configuration saved',
-      position: 'top',
-    });
-  } catch (error) {
-    console.error('Save config failed:', error);
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to save configuration',
-      position: 'top',
-    });
+  if (!hasValidatedKey()) {
+    expanded.value = true;
   }
+
+  $q.notify({
+    type: 'info',
+    message: `${
+      providerOptions.find((p) => p.value === provider)?.label
+    } API key cleared`,
+    position: 'top',
+    timeout: 1500,
+  });
 }
 
-async function clearCache() {
-  try {
-    await semanticSearchEngine.clearCache();
-    $q.notify({
-      type: 'positive',
-      message: 'Embedding cache cleared',
-      position: 'top',
-    });
-  } catch (error) {
-    console.error('Clear cache failed:', error);
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to clear cache',
-      position: 'top',
-    });
+// Get provider status badge
+function getProviderStatus(provider: AIProvider) {
+  const config = aiConfigStorage.getProviderConfig(provider);
+  if (!config || !config.apiKey) return null;
+
+  if (config.validated) {
+    return { color: 'positive', label: 'Validated' };
   }
+
+  if (config.lastError) {
+    return { color: 'negative', label: 'Invalid' };
+  }
+
+  return { color: 'grey', label: 'Not Tested' };
 }
 
-function formatDate(isoString: string): string {
-  return new Date(isoString).toLocaleString();
+// Get provider hint text
+function getProviderHint(provider: AIProvider): string {
+  const config = aiConfigStorage.getProviderConfig(provider);
+
+  if (!config) return '';
+
+  if (config.validated && config.lastValidated) {
+    return `Validated on ${new Date(config.lastValidated).toLocaleString()}`;
+  }
+
+  if (config.lastError) {
+    return `Error: ${config.lastError}`;
+  }
+
+  return 'Pending validation';
 }
 </script>
 
 <style scoped>
-.ai-settings-panel {
-  max-width: 600px;
+.ai-settings-expansion {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
 }
 </style>
