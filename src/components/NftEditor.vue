@@ -75,7 +75,15 @@
                     </div>
                   </div>
                 </q-btn-dropdown>
-
+                
+                <q-btn
+                  label="Save"
+                  @click="onSaveClick"
+                  icon="save"
+                  color="primary"
+                  dense
+                  no-caps
+                />
                 <q-input
                   v-if="accountStore.account !== undefined"
                   label="to"
@@ -154,11 +162,19 @@
             </div>
 
             <div
+              v-else-if="rightTab === 'share'"
+              class="q-pa-none"
+              style="flex: 1; overflow: auto; min-height: 0"
+            >
+              <TmDaoPanel />
+            </div>
+
+            <div
               v-else
               class="q-pa-md"
               style="flex: 1; overflow: auto; min-height: 0"
             >
-              <TmListPanel />
+              <TmListPanel @load-entry="onLoadEntry" @share="onShareToDao" />
             </div>
           </div>
 
@@ -184,6 +200,7 @@
               <q-tab name="ai" icon="psychology" label="AI" />
               <q-tab v-if="selectedTarget === 'instance'" name="flow" icon="hub" label="Flow" />
               <q-tab v-if="isAiConfigured && selectedTarget === 'instance'" name="eco" icon="eco" label="Eco" />
+              <q-tab name="share" icon="groups" label="Share" />
               <q-tab
                 v-if="accountStore.account"
                 name="tm-list"
@@ -210,6 +227,7 @@
 import PokedexEditor from 'src/components/editors/PokedexEditor.vue';
 import MintResultDialog from './MintResultDialog.vue';
 import ProductDecompositionWizard from './decomposition/ProductDecompositionWizard.vue';
+import TmDaoPanel from './TmDaoPanel.vue';
 import AISettingsPanel from './settings/AISettingsPanel.vue';
 import AIChatPanel from './ai/AIChatPanel.vue';
 import EcoPanel from './editors/impacts/EcoPanel.vue';
@@ -224,9 +242,13 @@ import {
 } from './editors/defaults';
 import { useQuasar, copyToClipboard } from 'quasar';
 import { useAccountStore } from 'src/stores/account';
+import { useWalletStore } from 'src/stores/wallet';
+import { useColonyStore } from 'src/stores/colony';
 import { useDecompositionStore } from 'src/stores/decomposition';
 import { useAsyncState } from '@vueuse/core';
 import { createWallet } from 'thirdweb/wallets';
+import { sha256 } from 'thirdweb/utils';
+import { Network } from '@colony/colony-js';
 import {
   estimateImpacts,
   downloadOpenLCAExport,
@@ -236,9 +258,290 @@ import NftInputsFlow from './nftFlow/NftInputsFlow.vue';
 
 import { aiConfigStorage } from 'src/services/ai/AIConfigStorage';
 
+const $q = useQuasar();
+
+function getBeeCtor() {
+  const beeJs = (window as any).BeeJs as
+    | { Bee: new (url: string, options?: unknown) => any }
+    | undefined;
+  if (!beeJs?.Bee) {
+    throw new Error('BeeJs is not available. Reload after BeeJS boot completes.');
+  }
+  return beeJs.Bee;
+}
+
 const value: Ref<Pokedex> = ref(clone(defaultPokedex));
 const machineDraft: Ref<MachineInstance> = ref(clone(defaultMachineInstance));
 const knowHowDraft: Ref<KnowHow> = ref(clone(defaultKnowHow));
+
+// Handler for loading entry from TmListPanel
+function onLoadEntry(entry: any) {
+  if (entry && entry.value) {
+     let newValue = JSON.parse(JSON.stringify(entry.value));
+     
+     // Attempt to parse if newValue is a stringified JSON (fixes double-stringification)
+     if (typeof newValue === 'string') {
+        try {
+           const parsed = JSON.parse(newValue);
+           if (parsed && typeof parsed === 'object') {
+              newValue = parsed;
+           }
+        } catch(e) { /* ignore */ }
+     }
+
+     if (entry.key) {
+       newValue.key = entry.key; // Store original key for update logic
+     }
+     
+     // Update the relevant model based on the target in the entry if possible, 
+     // or just update 'value' if it matches selectedTarget?
+     // The entry has 'target' property.
+     if (entry.target === 'machine') {
+       selectedTarget.value = 'machine';
+       machineDraft.value = newValue;
+     } else if (entry.target === 'knowHow') {
+       selectedTarget.value = 'knowHow';
+       knowHowDraft.value = newValue;
+     } else {
+       selectedTarget.value = 'instance';
+       value.value = newValue;
+     }
+
+     $q.notify({
+       message: 'Loaded entry from feed',
+       color: 'positive',
+       icon: 'cloud_download'
+     });
+  }
+}
+
+
+async function saveToSwarmFeed(target: string, payload: any) {
+  if (!accountStore.account) {
+    throw new Error('Wallet not connected');
+  }
+  if (!swarmApiUrl || !swarmBatchId) {
+    throw new Error('Swarm config missing (SWARM_API_URL or SWARM_BATCH).');
+  }
+
+  const Bee = getBeeCtor();
+  const bee = new Bee(swarmApiUrl);
+  const signer = await getSwarmSigner();
+  const ownerHex = accountStore.account?.address as string;
+  const topicName = `tm-editor-${target}`; // Dynamic topic based on target
+  const topic = bee.makeFeedTopic(topicName);
+  const feedType = 'sequence' as const;
+
+  const writer = bee.makeFeedWriter(feedType, topic, signer);
+  const manifestKey = feedManifestCacheKey(ownerHex, topicName);
+  let manifestReference = window.localStorage.getItem(manifestKey) || '';
+
+  let existingArray: unknown = [];
+  if (manifestReference) {
+    try {
+      const downloaded = await bee.downloadData(manifestReference);
+      const text = new TextDecoder().decode(downloaded);
+      existingArray = JSON.parse(text);
+    } catch (error) {
+      console.warn('[Swarm] Failed to read existing feed data', error);
+    }
+  }
+
+  // Ensure payload is prudent
+  const cleanPayload = pruneJson(payload) ?? {};
+  
+  // Reuse upsert logic, but we need to ensure upsertFeedArray uses 'target' correctly.
+  // The upsertFeedArray function uses 'selectedTarget.value'. 
+  // We should pass target explicitly to upsertFeedArray or modify it.
+  const nextArray = await upsertFeedArray(existingArray, cleanPayload, target);
+  
+  const upload = await bee.uploadData(
+    swarmBatchId,
+    JSON.stringify(nextArray)
+  );
+  
+  try {
+    await writer.upload(swarmBatchId, upload.reference);
+  } catch (err: any) {
+    // 404 handling logic...
+    const is404 =
+      err?.status === 404 ||
+      err?.response?.status === 404 ||
+      err?.code === 404 ||
+      (typeof err?.message === 'string' && (err.message.includes('404') || err.message.includes('Not Found')));
+
+    if (is404) {
+      await writer.upload(swarmBatchId, upload.reference, { index: 0 });
+    } else {
+      throw err;
+    }
+  }
+
+  if (!manifestReference) {
+    const manifest = await bee.createFeedManifest(
+      swarmBatchId,
+      feedType,
+      topic,
+      ownerHex
+    );
+    manifestReference = manifest.reference;
+    window.localStorage.setItem(manifestKey, manifestReference);
+  }
+  
+  return manifestReference;
+}
+
+// Updated signature to accept target
+async function upsertFeedArray(existing: unknown, payload: any, targetOverride?: string) {
+  const currentTarget = targetOverride || selectedTarget.value;
+  const list = Array.isArray(existing) ? [...existing] : [];
+  const key = deriveUpsertKey(payload) || (await hashJson(payload));
+  const index = list.findIndex(
+    (item: any) => item?.key === key && item?.target === currentTarget
+  );
+  const entry = {
+    key,
+    target: currentTarget,
+    updatedAt: new Date().toISOString(),
+    value: payload,
+    // Add colonyAddress at top level of entry for easier indexing? 
+    // It's already in payload (value), but feed entry often wraps it.
+    // Let's keep it in value for consistency with current schema.
+    colonyAddress: payload.colonyAddress
+  };
+  if (index >= 0) {
+    list[index] = { ...list[index], ...entry };
+  } else {
+    list.push(entry);
+  }
+  return list;
+}
+
+async function onSaveClick() {
+  if (!accountStore.account) {
+    if (walletDropdownRef.value?.show) {
+      walletDropdownRef.value.show();
+      return;
+    }
+    if (walletDropdownRef.value?.toggle) {
+      walletDropdownRef.value.toggle();
+      return;
+    }
+    return;
+  }
+  
+  try {
+    const payload = getActivePayload();
+    await saveToSwarmFeed(selectedTarget.value, payload);
+    $q.notify({
+      message: 'Saved to Swarm feed.',
+      color: 'positive',
+    });
+  } catch (error: unknown) {
+    console.error('[Swarm] Save failed', error);
+    $q.notify({
+      message: `Save failed: ${error instanceof Error ? error.message : String(error)}`,
+      color: 'negative',
+      icon: 'error',
+    });
+  }
+}
+
+async function onShareToDao(entry: any) {
+  if (!entry) return;
+
+  // Logic to determine label/name
+  let label = entry.type || entry.value?.type;
+  if (!label && (entry.target === 'machine' || entry.value?.category)) {
+     label = entry.value?.category;
+  }
+  if (!label && entry.target === 'knowHow' && entry.value?.outputs) {
+      const outputs = Array.isArray(entry.value.outputs) ? entry.value.outputs : [];
+      if (outputs.length > 0 && outputs[0]?.type) {
+          label = outputs[0].type;
+      }
+  }
+  
+  const existingColonyAddress = entry.colonyAddress || entry.value?.colonyAddress;
+  
+  if (existingColonyAddress) {
+    // Existing DAO found
+    localStorage.setItem('tm-dao.colony', existingColonyAddress);
+    colonyStore.colonyAddress = existingColonyAddress;
+    if (label) colonyStore.colonyLabel = label;
+    rightTab.value = 'share';
+  } else {
+    // No DAO found. Create one automatically?
+    $q.dialog({
+      title: 'Create Colony DAO?',
+      message: `No DAO found for "${label || 'this item'}". Would you like to create one now? This involves on-chain transactions.`,
+      cancel: true,
+      persistent: true
+    }).onOk(async () => {
+       try {
+         if (!accountStore.account) {
+             throw new Error("Connect wallet first");
+         }
+
+         // Ensure walletStore (Colony) is connected and network initialized
+         if (!walletStore.connection) {
+           await walletStore.connect();
+         }
+         
+         // Force switch to ArbitrumOne (required for Colony DAO creation)
+         // We use ArbitrumOne as the default target for real DAOs
+         const targetNetwork = Network.ArbitrumOne;
+         
+         // Only suggest switch if we are strictly not on the target chain? 
+         // walletStore.suggestNetworkSwitch should handle the check internally or we can check chainId.
+         // But checking chainId here requires knowing the specific ID (42161).
+         // Safer to let the store/service handle it.
+         await walletStore.suggestNetworkSwitch(targetNetwork);
+
+         if (!walletStore.networkClient) {
+           $q.loading.show({ message: 'Initializing Colony Network...' });
+           await walletStore.initNetworkClient(targetNetwork);
+         }
+         
+         $q.loading.show({ message: 'Creating Colony DAO (Minting token + Deploying contract)...' });
+         
+         // 1. Prepare Metadata & Token Params
+         const safeLabel = label || 'TraceMarket Item';
+         // Generate symbol: first 3-4 consonants or chars?
+         const safeSymbol = safeLabel.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || 'TMKT';
+         
+         const payload = entry.value || {};
+         
+         // 2. Call Store Action
+         const newAddress = await colonyStore.createColony({
+            name: safeLabel,
+            symbol: safeSymbol,
+            metadata: payload
+         });
+         
+         // 3. Update entry with new address
+         if (newAddress) {
+            const updatedPayload = { ...payload, colonyAddress: newAddress };
+            
+            // 4. Save back to Feed
+            await saveToSwarmFeed(entry.target, updatedPayload);
+            
+            $q.notify({ message: 'DAO Created & Feed Updated!', color: 'positive' });
+            
+            // 5. Navigate
+            colonyStore.colonyAddress = newAddress;
+            colonyStore.colonyLabel = safeLabel;
+            rightTab.value = 'share';
+         }
+       } catch (e: any) {
+         $q.notify({ message: `Creation failed: ${e.message}`, color: 'negative' });
+       } finally {
+         $q.loading.hide();
+       }
+    });
+  }
+}
+
 const rightTab = ref<'json' | 'flow' | 'tm-list' | 'wizard' | 'ai' | 'eco'>(
   'ai'
 );
@@ -459,6 +762,8 @@ provide('pokedexActions', {
 
 const decompositionStore = useDecompositionStore();
 const accountStore = useAccountStore();
+const walletStore = useWalletStore();
+const colonyStore = useColonyStore();
 
 const isAiConfigured = ref(false);
 const aiChatHasMessages = ref(false);
@@ -583,15 +888,19 @@ function onJsonInput(newValue: string | number | null) {
   }
 }
 
-const $q = useQuasar();
 const split = ref(50);
 const to = ref<string | undefined>(accountStore.account?.address);
 const walletDropdownRef = ref<any>(null);
-const selectedWallet = ref<'walletConnect' | 'metamask'>('walletConnect');
+const selectedWallet = ref<'walletConnect' | 'metamask'>('metamask');
 const walletOptions = [
   { label: 'WalletConnect (mobile)', value: 'walletConnect' },
   { label: 'MetaMask (browser)', value: 'metamask' },
 ];
+
+const swarmApiUrl = process.env.SWARM_API_URL;
+const swarmBatchId = process.env.SWARM_BATCH;
+const feedManifestCacheKey = (owner: string, topic: string) =>
+  `swarm:feed:${owner}:${topic}`;
 
 const walletDisconnect = useAsyncState(
   () => {
@@ -636,6 +945,110 @@ function onMintClick() {
   }
   return mint();
 }
+
+function getTopicName() {
+  return `tm-editor-${selectedTarget.value}`;
+}
+
+function getActivePayload() {
+  const target = getActiveJsonTarget();
+  return stripBioFields(JSON.parse(JSON.stringify(target)));
+}
+
+function hexToBytes(hex: string) {
+  const normalized = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = Number.parseInt(normalized.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+async function getSwarmSigner() {
+  const account = accountStore.account as any;
+  if (!account?.address || !account?.signMessage) {
+    throw new Error('Wallet signer not available');
+  }
+  const owner = account.address as string;
+  return {
+    address: hexToBytes(owner),
+    sign: async (digest: Uint8Array) => {
+      let signature: unknown;
+      try {
+        signature = await account.signMessage({ message: { raw: digest } });
+      } catch (error) {
+        const hex = `0x${Array.from(digest)
+          .map((byte) => byte.toString(16).padStart(2, '0'))
+          .join('')}`;
+        signature = await account.signMessage({ message: hex });
+      }
+      if (signature instanceof Uint8Array) {
+        return signature;
+      }
+      return hexToBytes(signature as string);
+    },
+  } as any;
+}
+
+function deriveUpsertKey(payload: any) {
+  if (!payload || typeof payload !== 'object') return null;
+  // If payload has an explicit key/id, use it.
+  if (['string', 'number'].includes(typeof payload.key)) return String(payload.key);
+  if (['string', 'number'].includes(typeof payload._key)) return String(payload._key);
+  if (['string', 'number'].includes(typeof payload.id)) return String(payload.id);
+
+  const candidates = [
+    payload.hash,
+    payload.token,
+    payload.contract,
+    payload.ownerId,
+    payload.type,
+    payload.title,
+  ];
+  return candidates.find((item) => typeof item === 'string' && item.trim().length > 0) || null;
+}
+
+async function hashJson(payload: any) {
+  const json = JSON.stringify(payload);
+  const data = new TextEncoder().encode(json);
+  const hash = sha256(data);
+  // Remove 0x prefix to match previous behavior (plain hex string)
+  return hash.startsWith('0x') ? hash.slice(2) : hash;
+}
+
+function pruneJson(value: any): any {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length === 0 ? undefined : value;
+  }
+  if (typeof value === 'number') {
+    return value === 0 ? undefined : value;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    const next = value
+      .map((item) => pruneJson(item))
+      .filter((item) => item !== undefined);
+    return next.length === 0 ? undefined : next;
+  }
+  if (typeof value === 'object') {
+    const next: Record<string, any> = {};
+    Object.entries(value).forEach(([key, val]) => {
+      const pruned = pruneJson(val);
+      if (pruned !== undefined) {
+        next[key] = pruned;
+      }
+    });
+    return Object.keys(next).length === 0 ? undefined : next;
+  }
+  return value;
+}
+
+
 
 async function connectWallet() {
   try {

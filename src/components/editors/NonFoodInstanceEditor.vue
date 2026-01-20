@@ -23,7 +23,7 @@
             <div class="col-12 col-sm-6 col-md-4">
               <TimestampInput v-model="value.expiryDate" label="expiryDate" />
             </div>
-            <div class="col-12 col-md-8">
+            <div class="col-12 col-md-12">
               <BasicInput v-model="value.description" label="description" />
             </div>
             <div class="col-12 col-md-4">

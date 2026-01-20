@@ -17,10 +17,13 @@
     "prepare": "ts-patch install && typia patch"
   },
   "dependencies": {
+    "@colony/colony-js": "^8.1.0",
+    "@ethersphere/bee-js": "^7.1.0",
     "@mapbox/mapbox-gl-geocoder": "^5.1.2",
     "@quasar/extras": "^1.16.4",
     "@vueuse/core": "^10.11.1",
     "axios": "^1.2.1",
+    "ethers": "^5.7.2",
     "jsonata-visual-editor": "^0.4.3",
     "mapbox-gl": "^3.17.0",
     "pinia": "^2.2.1",

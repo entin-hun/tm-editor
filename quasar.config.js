@@ -30,7 +30,7 @@ module.exports = configure(function (ctx) {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['axios'],
+    boot: ['beejs', 'axios'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -88,6 +88,24 @@ module.exports = configure(function (ctx) {
       // viteVuePluginOptions: {},
 
       // vitePlugins: [],
+      extendViteConf(viteConf) {
+        viteConf.optimizeDeps = viteConf.optimizeDeps || {};
+        const existing = viteConf.optimizeDeps.exclude || [];
+        viteConf.optimizeDeps.exclude = Array.from(
+          new Set([...(Array.isArray(existing) ? existing : [existing]), '@ethersphere/bee-js'])
+        );
+        const alias = viteConf.resolve?.alias || {};
+        viteConf.resolve = {
+          ...viteConf.resolve,
+          alias: {
+            ...alias,
+            'bee-js-browser': path.resolve(
+              __dirname,
+              'node_modules/@ethersphere/bee-js/dist/index.browser.min.js'
+            ),
+          },
+        };
+      },
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
@@ -113,7 +131,7 @@ module.exports = configure(function (ctx) {
       // directives: [],
 
       // Quasar plugins
-      plugins: ['Dialog', 'Notify'],
+      plugins: ['Dialog', 'Notify', 'Loading'],
     },
 
     // animations: 'all', // --- includes all animations
