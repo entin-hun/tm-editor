@@ -106,7 +106,6 @@
 </template>
 
 <script setup lang="ts">
-import assert from 'assert';
 import { useDialogPluginComponent, copyToClipboard } from 'quasar';
 import { useAccountStore } from 'src/stores/account';
 import { getContract, Hex, ZERO_ADDRESS } from 'thirdweb';
@@ -136,8 +135,8 @@ const nftContract = getContract({
 });
 
 const cancelListingTx = useAsyncState<Hex | undefined>(async () => {
-  assert(accountStore.account !== undefined);
-  assert(accountStore.wallet !== undefined);
+  if (accountStore.account === undefined) throw new Error('Account undefined');
+  if (accountStore.wallet === undefined) throw new Error('Wallet undefined');
 
   if (accountStore.wallet.getChain()?.id !== accountStore.chain.id)
     await accountStore.wallet.switchChain(accountStore.chain);

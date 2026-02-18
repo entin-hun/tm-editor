@@ -1,5 +1,9 @@
 import { defineStore } from 'pinia';
-import { Extension, getColonyRoles, type AnyColonyClient } from '@colony/colony-js';
+import {
+  Extension,
+  getColonyRoles,
+  type AnyColonyClient,
+} from '@colony/colony-js';
 import { utils, BigNumber, Contract } from 'ethers';
 import { fetchSwarmJson, uploadSwarmJson } from 'src/services/swarm';
 import { useWalletStore } from './wallet';
@@ -37,7 +41,7 @@ export const useColonyStore = defineStore('colony', {
     teams: [] as Team[],
     loading: false,
     status: '',
-    lastError: ''
+    lastError: '',
   }),
   actions: {
     async loadColony(address: string) {
@@ -70,14 +74,19 @@ export const useColonyStore = defineStore('colony', {
         colonyClientInstance = colonyClient as AnyColonyClient;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const colonyAddress = (colonyClient as any).address as string | undefined;
+        const colonyAddress = (colonyClient as any).address as
+          | string
+          | undefined;
         if (colonyAddress) {
           this.colonyAddress = colonyAddress;
         }
 
         try {
           if (this.colonyAddress && utils.isAddress(this.colonyAddress)) {
-            this.colonyLabel = await walletStore.networkClient.lookupRegisteredENSDomainWithNetworkPatches(this.colonyAddress);
+            this.colonyLabel =
+              await walletStore.networkClient.lookupRegisteredENSDomainWithNetworkPatches(
+                this.colonyAddress
+              );
           } else {
             this.colonyLabel = '';
           }
@@ -90,21 +99,22 @@ export const useColonyStore = defineStore('colony', {
         const [name, symbol, decimals] = await Promise.all([
           tokenClient.name(),
           tokenClient.symbol(),
-          tokenClient.decimals()
+          tokenClient.decimals(),
         ]);
 
         this.tokenInfo = {
           address: tokenAddress,
           name,
           symbol,
-          decimals: Number(decimals)
+          decimals: Number(decimals),
         };
 
         await this.fetchTeams();
         await this.fetchTeamContributors();
         this.status = 'Colony loaded.';
       } catch (error) {
-        const baseMessage = error instanceof Error ? error.message : 'Colony load failed.';
+        const baseMessage =
+          error instanceof Error ? error.message : 'Colony load failed.';
         this.lastError = `${baseMessage} Ensure the Colony exists on the connected network.`;
         this.status = 'Colony load failed';
         throw error;
@@ -134,7 +144,11 @@ export const useColonyStore = defineStore('colony', {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const metadata = (domain as any).metadata;
         let metadataName = '';
-        if (metadata && typeof metadata === 'object' && typeof metadata.name === 'string') {
+        if (
+          metadata &&
+          typeof metadata === 'object' &&
+          typeof metadata.name === 'string'
+        ) {
           metadataName = metadata.name.trim();
         }
         if (!metadataName && typeof metadata === 'string') {
@@ -167,7 +181,7 @@ export const useColonyStore = defineStore('colony', {
           skillId: domain.skillId.toString(),
           fundingPotId: fundingPotId.toString(),
           balance: utils.formatUnits(balance, this.tokenInfo.decimals),
-          contributors: []
+          contributors: [],
         });
       }
 
@@ -185,7 +199,9 @@ export const useColonyStore = defineStore('colony', {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tokenClient = colonyClientInstance.tokenClient as any;
       const totalSupply = await tokenClient.totalSupply();
-      const roles = await getColonyRoles(colonyClientInstance as AnyColonyClient);
+      const roles = await getColonyRoles(
+        colonyClientInstance as AnyColonyClient
+      );
 
       const teamMembers = new Map<number, Set<string>>();
       for (const userRole of roles) {
@@ -204,17 +220,27 @@ export const useColonyStore = defineStore('colony', {
             address: this.tokenInfo.address,
             fromBlock: 0,
             toBlock: 'latest',
-            topics: [transferTopic]
+            topics: [transferTopic],
           });
           const holderSet = new Set<string>();
           for (const log of logs) {
             const parsed = tokenClient.interface.parseLog(log);
             const from = parsed.args?.from ?? parsed.args?.[0];
             const to = parsed.args?.to ?? parsed.args?.[1];
-            if (from && utils.isAddress(from) && from !== utils.getAddress('0x0000000000000000000000000000000000000000')) {
+            if (
+              from &&
+              utils.isAddress(from) &&
+              from !==
+                utils.getAddress('0x0000000000000000000000000000000000000000')
+            ) {
               holderSet.add(utils.getAddress(from));
             }
-            if (to && utils.isAddress(to) && to !== utils.getAddress('0x0000000000000000000000000000000000000000')) {
+            if (
+              to &&
+              utils.isAddress(to) &&
+              to !==
+                utils.getAddress('0x0000000000000000000000000000000000000000')
+            ) {
               holderSet.add(utils.getAddress(to));
             }
           }
@@ -249,7 +275,7 @@ export const useColonyStore = defineStore('colony', {
           contributors.push({
             address,
             balance: utils.formatUnits(balance, this.tokenInfo.decimals),
-            percentage: percentage.toFixed(2)
+            percentage: percentage.toFixed(2),
           });
         }
 
@@ -262,6 +288,10 @@ export const useColonyStore = defineStore('colony', {
 
     async refreshColony() {
       if (!colonyClientInstance) {
+        if (this.colonyAddress) {
+          await this.loadColony(this.colonyAddress);
+          return;
+        }
         throw new Error('Colony not loaded');
       }
       await this.fetchTeams();
@@ -279,7 +309,10 @@ export const useColonyStore = defineStore('colony', {
         throw new Error('Colony not loaded');
       }
       const token = params.tokenAddress || this.tokenInfo.address;
-      const amountWei = utils.parseUnits(params.amount || '0', this.tokenInfo.decimals);
+      const amountWei = utils.parseUnits(
+        params.amount || '0',
+        this.tokenInfo.decimals
+      );
       this.status = 'Creating payment...';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tx = await (colonyClientInstance as any).addPaymentWithProofs(
@@ -324,7 +357,9 @@ export const useColonyStore = defineStore('colony', {
         throw new Error('Colony not loaded');
       }
       this.status = 'Creating motion...';
-      const votingReputation = await colonyClientInstance.getExtensionClient(Extension.VotingReputation);
+      const votingReputation = await colonyClientInstance.getExtensionClient(
+        Extension.VotingReputation
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tx = await (votingReputation as any).createMotionWithProofs(
         params.domainId,
@@ -341,7 +376,10 @@ export const useColonyStore = defineStore('colony', {
       }
       const payload = normalizeSwarmMetadata(metadata);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (colonyClientInstance as any).interface.encodeFunctionData('editColony', [payload]);
+      return (colonyClientInstance as any).interface.encodeFunctionData(
+        'editColony',
+        [payload]
+      );
     },
 
     async uploadMetadataToSwarm(metadata: string) {
@@ -350,7 +388,10 @@ export const useColonyStore = defineStore('colony', {
         throw new Error('Metadata is required');
       }
       let payload: unknown = trimmed;
-      if (!trimmed.startsWith('bzz://') && (trimmed.startsWith('{') || trimmed.startsWith('['))) {
+      if (
+        !trimmed.startsWith('bzz://') &&
+        (trimmed.startsWith('{') || trimmed.startsWith('['))
+      ) {
         payload = JSON.parse(trimmed);
       }
       const result = await uploadSwarmJson(payload);
@@ -382,17 +423,23 @@ export const useColonyStore = defineStore('colony', {
       if (!colonyClientInstance || !this.tokenInfo) {
         throw new Error('Colony not loaded');
       }
-      const amountWei = utils.parseUnits(params.amount || '0', this.tokenInfo.decimals);
+      const amountWei = utils.parseUnits(
+        params.amount || '0',
+        this.tokenInfo.decimals
+      );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (colonyClientInstance as any).interface.encodeFunctionData('addPayment', [
-        params.permissionDomainId,
-        params.childSkillIndex,
-        params.recipient,
-        params.token || this.tokenInfo.address,
-        amountWei,
-        params.domainId,
-        params.skillId
-      ]);
+      return (colonyClientInstance as any).interface.encodeFunctionData(
+        'addPayment',
+        [
+          params.permissionDomainId,
+          params.childSkillIndex,
+          params.recipient,
+          params.token || this.tokenInfo.address,
+          amountWei,
+          params.domainId,
+          params.skillId,
+        ]
+      );
     },
 
     async createSubSkill(params: { parentDomainId: number; name: string }) {
@@ -410,10 +457,9 @@ export const useColonyStore = defineStore('colony', {
       }
       this.status = 'Creating sub-skill...';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tx = await (colonyClientInstance as any)['addDomainWithProofs(uint256,string)'](
-        params.parentDomainId,
-        metadata
-      );
+      const tx = await (colonyClientInstance as any)[
+        'addDomainWithProofs(uint256,string)'
+      ](params.parentDomainId, metadata);
       this.status = `Sub-skill transaction submitted: ${tx.hash}`;
       await this.fetchTeams();
       await this.fetchTeamContributors();
@@ -425,17 +471,20 @@ export const useColonyStore = defineStore('colony', {
         throw new Error('Colony token info not loaded');
       }
       this.status = 'Minting tokens...';
-      const amountWei = utils.parseUnits(params.amount, this.tokenInfo.decimals);
-      
+      const amountWei = utils.parseUnits(
+        params.amount,
+        this.tokenInfo.decimals
+      );
+
       const walletStore = useWalletStore();
       if (!walletStore.connection) throw new Error('No wallet connection');
-      
+
       const token = new Contract(
-        this.tokenInfo.address, 
-        ['function mint(address to, uint256 amount) public'], 
+        this.tokenInfo.address,
+        ['function mint(address to, uint256 amount) public'],
         walletStore.connection.signer
       );
-      
+
       const tx = await token.mint(params.address, amountWei);
       this.status = `Minting transaction submitted: ${tx.hash}`;
       await tx.wait(); // Wait for confirmation
@@ -451,81 +500,90 @@ export const useColonyStore = defineStore('colony', {
     }) {
       const walletStore = useWalletStore();
       if (!walletStore.networkClient) {
-        throw new Error('Network client not initialized. Ensure wallet is connected.');
+        throw new Error(
+          'Network client not initialized. Ensure wallet is connected.'
+        );
       }
 
       let metadataUrl = '';
       if (params.metadata && typeof params.metadata === 'object') {
-         const res = await uploadSwarmJson(params.metadata);
-         metadataUrl = res.url;
+        const res = await uploadSwarmJson(params.metadata);
+        metadataUrl = res.url;
       } else if (typeof params.metadata === 'string') {
-         metadataUrl = params.metadata;
+        metadataUrl = params.metadata;
       } else {
-         const res = await uploadSwarmJson({ name: params.name });
-         metadataUrl = res.url;
+        const res = await uploadSwarmJson({ name: params.name });
+        metadataUrl = res.url;
       }
-      
+
       try {
         // 1. Create Token
         this.status = 'Creating Token...';
-        
+
         // Use deployToken helper from network client (if available) or fallback
         // Typical signature: deployToken(name, symbol, decimals) or deployToken({ name, symbol, decimals })
         // We attempt the standard positional args for colony-js v5+
-        
+
         let tokenAddress: string | { address: string } = '';
         try {
-           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-           tokenAddress = await (walletStore.networkClient as any).deployToken(
-             params.name,
-             params.symbol,
-             18
-           );
-        } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-           // Fallback if deployToken signature matches object or doesn't exist?
-           // Actually, if deployToken fails, we can't easily proceed without writing raw bytecode deployment.
-           // Let's assume deployToken works as per standard colony-js env.
-           throw new Error(`Token deployment failed: ${err.message}`);
-        }
-        
-        if (!tokenAddress || typeof tokenAddress !== 'string') {
-             // Sometimes it returns a contract object
-             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-             if (tokenAddress && (tokenAddress as any).address) {
-                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                 tokenAddress = (tokenAddress as any).address;
-             } else {
-                 throw new Error('Token deployment returned invalid address');
-             }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          tokenAddress = await (walletStore.networkClient as any).deployToken(
+            params.name,
+            params.symbol,
+            18
+          );
+        } catch (err: any) {
+          // eslint-disable-line @typescript-eslint/no-explicit-any
+          // Fallback if deployToken signature matches object or doesn't exist?
+          // Actually, if deployToken fails, we can't easily proceed without writing raw bytecode deployment.
+          // Let's assume deployToken works as per standard colony-js env.
+          throw new Error(`Token deployment failed: ${err.message}`);
         }
 
-        const tx = await walletStore.networkClient.createColony(tokenAddress as string, {
+        if (!tokenAddress || typeof tokenAddress !== 'string') {
+          // Sometimes it returns a contract object
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (tokenAddress && (tokenAddress as any).address) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            tokenAddress = (tokenAddress as any).address;
+          } else {
+            throw new Error('Token deployment returned invalid address');
+          }
+        }
+
+        const tx = await walletStore.networkClient.createColony(
+          tokenAddress as string,
+          {
             metadata: metadataUrl,
-            version: await walletStore.networkClient.getColonyVersion()
-        });
-        
+            version: await walletStore.networkClient.getColonyVersion(),
+          }
+        );
+
         this.status = `Colony creation submitted: ${tx.hash}`;
         const receipt = await tx.wait();
-        
+
         // Find ColonyAdded event
         const eventFilter = walletStore.networkClient.filters.ColonyAdded();
-        const event = receipt.events?.find((e: any) => e.topics[0] === eventFilter.topics?.[0]); // eslint-disable-line @typescript-eslint/no-explicit-any
+        const event = receipt.events?.find(
+          (e: any) => e.topics[0] === eventFilter.topics?.[0]
+        ); // eslint-disable-line @typescript-eslint/no-explicit-any
         const colonyAddress = event?.args?.colonyAddress;
-        
-        if (!colonyAddress) throw new Error('Colony Created but address not found in logs');
-        
+
+        if (!colonyAddress)
+          throw new Error('Colony Created but address not found in logs');
+
         this.colonyAddress = colonyAddress;
         this.colonyLabel = params.name; // Temporary until index syncs
         this.status = 'Colony Created Successfully';
-        
+
         return colonyAddress;
       } catch (error) {
-         this.lastError = error instanceof Error ? error.message : 'Failed to create colony';
-         throw error;
+        this.lastError =
+          error instanceof Error ? error.message : 'Failed to create colony';
+        throw error;
       }
-    }
-    
-  }
+    },
+  },
 });
 
 const SWARM_PREFIXES = ['bzz://', 'https://', 'http://'];
@@ -537,7 +595,9 @@ function normalizeSwarmMetadata(input: string) {
   }
   const isSwarm = SWARM_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
   if (!isSwarm && trimmed.length > 128) {
-    throw new Error('Metadata must be stored on Swarm (use a bzz:// URL or Swarm gateway link).');
+    throw new Error(
+      'Metadata must be stored on Swarm (use a bzz:// URL or Swarm gateway link).'
+    );
   }
   return trimmed;
 }
@@ -550,13 +610,17 @@ function normalizeSwarmHash(input: string) {
   if (trimmed.startsWith('0x')) {
     return trimmed;
   }
-  const isSwarmUrl = SWARM_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
+  const isSwarmUrl = SWARM_PREFIXES.some((prefix) =>
+    trimmed.startsWith(prefix)
+  );
   if (isSwarmUrl) {
     const lastSegment = trimmed.split('/').pop() || '';
     if (/^[0-9a-fA-F]{64}$/.test(lastSegment)) {
       return `0x${lastSegment}`;
     }
-    throw new Error('Provide a Swarm hash (64 hex chars) for task specification.');
+    throw new Error(
+      'Provide a Swarm hash (64 hex chars) for task specification.'
+    );
   }
   if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
     return `0x${trimmed}`;

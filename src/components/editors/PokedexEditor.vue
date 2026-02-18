@@ -25,9 +25,18 @@
             label="instance"
             priced
             is-root
+            :show-process="true"
           />
-          <BasicInput v-model="value.contract" label="contract" default-value="" />
-          <BasicInput v-model="value.description" label="notes" default-value="" />
+          <BasicInput
+            v-model="value.contract"
+            label="contract"
+            default-value=""
+          />
+          <BasicInput
+            v-model="value.description"
+            label="notes"
+            default-value=""
+          />
           <q-select
             v-model="value.typesVersion"
             label="typesVersion (schema)"
@@ -69,7 +78,12 @@
 <script setup lang="ts">
 import { Pokedex, MachineInstance, KnowHow } from '@trace.market/types';
 import BasicInput from './BasicInput.vue';
-import { clone, defaultKnowHow, defaultMachineInstance, defaultPokedex } from './defaults';
+import {
+  clone,
+  defaultKnowHow,
+  defaultMachineInstance,
+  defaultPokedex,
+} from './defaults';
 import { ref, watch, onMounted } from 'vue';
 import ProductInstanceEditor from './ProductInstanceEditor.vue';
 import MachineInstanceEditor from './MachineInstanceEditor.vue';

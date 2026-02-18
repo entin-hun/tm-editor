@@ -12,7 +12,9 @@ import axios from 'axios';
 // Define the store
 export const useSchemaStore = defineStore('schema', () => {
   // State
-  const descriptions = ref<Record<string, TypeDescription>>({ ...localDescriptions });
+  const descriptions = ref<Record<string, TypeDescription>>({
+    ...localDescriptions,
+  });
   const currentVersion = ref<string>('');
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -29,15 +31,15 @@ export const useSchemaStore = defineStore('schema', () => {
   // Actions
   async function fetchVersion(version: string) {
     if (!version || version === currentVersion.value) return;
-    
+
     isLoading.value = true;
     error.value = null;
-    
+
     try {
       // Fetch the JSON file from jsDelivr
       // Note: We need to ensure the package structure supports this path
       const url = `https://cdn.jsdelivr.net/npm/@trace.market/types@${version}/src/descriptions.json`;
-      
+
       const response = await axios.get(url);
       if (response.data) {
         descriptions.value = response.data;
@@ -68,7 +70,8 @@ export const useSchemaStore = defineStore('schema', () => {
       }
     } catch (e: any) {
       console.warn('[SchemaStore] Failed to load merged schema', e);
-      error.value = 'Failed to load merged schema. Falling back to local defaults.';
+      error.value =
+        'Failed to load merged schema. Falling back to local defaults.';
     } finally {
       isLoading.value = false;
     }
@@ -84,7 +87,7 @@ export const useSchemaStore = defineStore('schema', () => {
   function getTypeDescription(typeName: string): TypeDescription | undefined {
     return descriptions.value[typeName];
   }
-  
+
   function getAllTypeNames(): string[] {
     return Object.keys(descriptions.value);
   }
@@ -141,6 +144,6 @@ export const useSchemaStore = defineStore('schema', () => {
     getFieldDescription,
     getTypeDescription,
     getAllTypeNames,
-    buildJsonSchema
+    buildJsonSchema,
   };
 });

@@ -33,30 +33,17 @@
       "type": {
         "label": "Product Type",
         "description": "The name or category of the product displayed in the supply chain tree",
-        "examples": [
-          "tomato",
-          "flour",
-          "pasta",
-          "chickpea",
-          "protein powder"
-        ]
+        "examples": ["tomato", "flour", "pasta", "chickpea", "protein powder"]
       },
       "ownerId": {
         "label": "Owner",
         "description": "Domain or identifier of the entity that owns/produces this product",
-        "examples": [
-          "farmname.com",
-          "producer123",
-          "manufacturer.org"
-        ]
+        "examples": ["farmname.com", "producer123", "manufacturer.org"]
       },
       "category": {
         "label": "Category",
         "description": "Main category determining how the product is processed and displayed",
-        "examples": [
-          "food",
-          "non-food"
-        ]
+        "examples": ["food", "non-food"]
       },
       "expiryDate": {
         "label": "Expiry Date",
@@ -124,25 +111,12 @@
       "grade": {
         "label": "Grade",
         "description": "Quality classification displayed with grade icon",
-        "examples": [
-          "A",
-          "B",
-          "C",
-          "premium",
-          "standard",
-          "organic"
-        ]
+        "examples": ["A", "B", "C", "premium", "standard", "organic"]
       },
       "size": {
         "label": "Size",
         "description": "Size classification of individual items (not quantity)",
-        "examples": [
-          "small",
-          "medium",
-          "large",
-          "XL",
-          "jumbo"
-        ]
+        "examples": ["small", "medium", "large", "XL", "jumbo"]
       },
       "packaging": {
         "label": "Packaging",
@@ -167,22 +141,12 @@
       "grade": {
         "label": "Grade",
         "description": "Quality grade of the cartridge",
-        "examples": [
-          "premium",
-          "standard",
-          "industrial"
-        ]
+        "examples": ["premium", "standard", "industrial"]
       },
       "size": {
         "label": "Size",
         "description": "Physical size classification of the cartridge",
-        "examples": [
-          "small",
-          "medium",
-          "large",
-          "100g",
-          "500g"
-        ]
+        "examples": ["small", "medium", "large", "100g", "500g"]
       }
     },
     "extends": "ProductInstanceBase"
@@ -214,24 +178,12 @@
       "type": {
         "label": "Type",
         "description": "Common packaging format",
-        "examples": [
-          "box",
-          "bag",
-          "bottle",
-          "can",
-          "pallet"
-        ]
+        "examples": ["box", "bag", "bottle", "can", "pallet"]
       },
       "material": {
         "label": "Material",
         "description": "Primary material",
-        "examples": [
-          "plastic",
-          "glass",
-          "paper",
-          "metal",
-          "wood"
-        ]
+        "examples": ["plastic", "glass", "paper", "metal", "wood"]
       },
       "recyclable": {
         "label": "Recyclable",
@@ -254,10 +206,7 @@
       "type": {
         "label": "Input Type",
         "description": "Whether the input comes from the same location (local) or was transported",
-        "examples": [
-          "local",
-          "transported"
-        ]
+        "examples": ["local", "transported"]
       },
       "transport": {
         "label": "Shipping",
@@ -298,31 +247,17 @@
       "method": {
         "label": "Shipping Method",
         "description": "Mode of transportation - displayed with corresponding icon (plane/truck/boat)",
-        "examples": [
-          "air",
-          "sea",
-          "land"
-        ]
+        "examples": ["air", "sea", "land"]
       },
       "fuelType": {
         "label": "Fuel Type",
         "description": "Energy source used - affects environmental impact calculation",
-        "examples": [
-          "hydrogen",
-          "electric",
-          "diesel",
-          "petrol",
-          "kerosene"
-        ]
+        "examples": ["hydrogen", "electric", "diesel", "petrol", "kerosene"]
       },
       "weight": {
         "label": "Share",
         "description": "Percentage (0-1) of vehicle capacity used by this product - shown as \"Share: X%\"",
-        "examples": [
-          "0.25 (25%)",
-          "0.5 (50%)",
-          "1.0 (100%)"
-        ]
+        "examples": ["0.25 (25%)", "0.5 (50%)", "1.0 (100%)"]
       },
       "deparetureTime": {
         "label": "Departure Time",
@@ -533,11 +468,7 @@
       "label": {
         "label": "Name",
         "description": "Human-readable facility name (defaults to \"Unnamed Facility\" if omitted)",
-        "examples": [
-          "Green Valley Farm",
-          "Mill #3",
-          "Distribution Center"
-        ]
+        "examples": ["Green Valley Farm", "Mill #3", "Distribution Center"]
       },
       "location": {
         "label": "GPS Location",
@@ -566,33 +497,17 @@
       "amount": {
         "label": "Amount",
         "description": "Numerical price value",
-        "examples": [
-          "19.99",
-          "5.50",
-          "125.00"
-        ]
+        "examples": ["19.99", "5.50", "125.00"]
       },
       "currency": {
         "label": "Currency",
         "description": "Currency code following ISO 4217 standard",
-        "examples": [
-          "USD",
-          "EUR",
-          "GBP",
-          "CHF",
-          "JPY"
-        ]
+        "examples": ["USD", "EUR", "GBP", "CHF", "JPY"]
       },
       "type": {
         "label": "Price Type",
         "description": "Payment structure or timing - affects how price is displayed and calculated",
-        "examples": [
-          "is",
-          "budget",
-          "%",
-          "payin30days",
-          "payin60days"
-        ]
+        "examples": ["is", "budget", "%", "payin30days", "payin60days"]
       }
     }
   },
@@ -603,22 +518,12 @@
       "min": {
         "label": "Minimum",
         "description": "Lowest temperature in Celsius during the process",
-        "examples": [
-          "-40",
-          "0",
-          "20",
-          "100"
-        ]
+        "examples": ["-40", "0", "20", "100"]
       },
       "max": {
         "label": "Maximum",
         "description": "Highest temperature in Celsius during the process",
-        "examples": [
-          "25",
-          "80",
-          "150",
-          "200"
-        ]
+        "examples": ["25", "80", "150", "200"]
       }
     }
   },
@@ -629,13 +534,7 @@
       "category": {
         "label": "Machine Type",
         "description": "Type of equipment",
-        "examples": [
-          "3D Printer",
-          "Mill",
-          "Blender",
-          "Freeze Dryer",
-          "Oven"
-        ]
+        "examples": ["3D Printer", "Mill", "Blender", "Freeze Dryer", "Oven"]
       },
       "ownerId": {
         "label": "Owner",
@@ -648,12 +547,7 @@
       "size": {
         "label": "Size",
         "description": "Physical size or capacity classification",
-        "examples": [
-          "small",
-          "medium",
-          "large",
-          "industrial"
-        ]
+        "examples": ["small", "medium", "large", "industrial"]
       },
       "hr": {
         "label": "Tasks",
@@ -672,11 +566,7 @@
       "tasks": {
         "label": "Tasks",
         "description": "Description of work performed by the operator",
-        "examples": [
-          "machine operation",
-          "quality control",
-          "supervision"
-        ]
+        "examples": ["machine operation", "quality control", "supervision"]
       },
       "assignee": {
         "label": "Assignee",
@@ -725,10 +615,7 @@
       "category": {
         "label": "Impact Category",
         "description": "Type of environmental impact",
-        "examples": [
-          "carbon",
-          "water"
-        ]
+        "examples": ["carbon", "water"]
       },
       "ownerId": {
         "label": "Owner",
@@ -773,22 +660,12 @@
       "registry": {
         "label": "Registry Name",
         "description": "The system or authority issuing the ID",
-        "examples": [
-          "EAN",
-          "PLU",
-          "Organic Certification",
-          "FDA",
-          "USDA"
-        ]
+        "examples": ["EAN", "PLU", "Organic Certification", "FDA", "USDA"]
       },
       "id": {
         "label": "ID Value",
         "description": "The actual identifier string",
-        "examples": [
-          "8901234567890",
-          "4011",
-          "US-ORG-123"
-        ]
+        "examples": ["8901234567890", "4011", "US-ORG-123"]
       }
     }
   },
@@ -817,10 +694,7 @@
       "coordinates": {
         "label": "Coordinates",
         "description": "Array of [longitude, latitude] in decimal degrees",
-        "examples": [
-          "[7.5885, 47.5595]",
-          "[-122.3321, 47.6062]"
-        ]
+        "examples": ["[7.5885, 47.5595]", "[-122.3321, 47.6062]"]
       }
     }
   },

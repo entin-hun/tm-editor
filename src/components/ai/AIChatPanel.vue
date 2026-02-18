@@ -411,7 +411,6 @@ function handleAgUiEvent(event: Event) {
     return;
   }
 
-
   if (eventType === 'connected' || eventType === 'heartbeat') {
     return;
   }

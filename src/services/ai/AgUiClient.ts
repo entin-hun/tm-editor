@@ -233,7 +233,9 @@ export async function sendAgUiChatRequest(
   payload: ChatPayload
 ): Promise<boolean> {
   if (!aiConfigStorage.isConfigured()) {
-    console.warn('[AgUiClient] AI is not configured; cannot start chat request');
+    console.warn(
+      '[AgUiClient] AI is not configured; cannot start chat request'
+    );
     return false;
   }
 

@@ -24,7 +24,7 @@ export function getFieldDescriptionOrDefault(
   // or after Pinia is installed.
   const schemaStore = useSchemaStore();
   const description = schemaStore.getFieldDescription(typeName, fieldName);
-  
+
   if (description) {
     return description;
   }
@@ -33,7 +33,6 @@ export function getFieldDescriptionOrDefault(
     description: `No description available for ${fieldName}`,
   };
 }
-
 
 /**
  * Get type description

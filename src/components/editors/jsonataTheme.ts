@@ -62,7 +62,8 @@ export function createJsonataTheme(ReactLib: ReactLike) {
       )
     );
 
-  const RootNodeEditor = ({ editor }: any) => section(ReactLib, 'Expression', editor);
+  const RootNodeEditor = ({ editor }: any) =>
+    section(ReactLib, 'Expression', editor);
 
   const IDETextarea = ({ text, textChange }: any) =>
     h('textarea', {
@@ -118,7 +119,8 @@ export function createJsonataTheme(ReactLib: ReactLike) {
       )
     );
 
-  const BlockEditor = ({ children }: any) => section(ReactLib, 'Block', children);
+  const BlockEditor = ({ children }: any) =>
+    section(ReactLib, 'Block', children);
 
   const ConditionEditor = ({ children, elseEditor, addNew, removeLast }: any) =>
     section(
@@ -223,7 +225,8 @@ export function createJsonataTheme(ReactLib: ReactLike) {
       'Variable',
       h('input', {
         value: ast?.value || '',
-        onChange: (event: any) => onChange({ ...ast, value: event.target.value }),
+        onChange: (event: any) =>
+          onChange({ ...ast, value: event.target.value }),
       })
     );
 
@@ -243,7 +246,8 @@ export function createJsonataTheme(ReactLib: ReactLike) {
       'Path',
       h('input', {
         value: ast?.value || '',
-        onChange: (event: any) => onChange({ ...ast, value: event.target.value }),
+        onChange: (event: any) =>
+          onChange({ ...ast, value: event.target.value }),
       })
     );
 

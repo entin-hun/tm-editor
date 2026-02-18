@@ -20,6 +20,15 @@
             <div v-else class="text-caption q-mt-xs">Total cost: —</div>
           </div>
           <div class="row items-center q-gutter-sm">
+            <q-select
+              v-model="processType"
+              :options="processOptions"
+              dense
+              outlined
+              label="process"
+              style="min-width: 180px"
+              @update:model-value="onProcessTypeChange"
+            />
             <q-btn
               flat
               color="primary"
@@ -75,7 +84,10 @@
 
           <div v-if="expandedIndex === idx" class="q-mt-md">
             <q-card flat bordered class="q-pa-md">
-              <InputInstanceEditor :value="inp" />
+              <InputInstanceEditor
+                :model-value="inp"
+                @update:model-value="onInputUpdate(idx, $event)"
+              />
             </q-card>
           </div>
         </div>
@@ -207,6 +219,69 @@ const outputLabel = computed(
   () => outputInstance.value?.title ?? outputInstance.value?.type ?? 'output'
 );
 
+const schemaStore = useSchemaStore();
+const processType = ref<string | undefined>(process.value?.type);
+
+watch(
+  () => process.value?.type,
+  (nextType) => {
+    processType.value = nextType ?? undefined;
+  },
+  { immediate: true }
+);
+
+const processOptions = computed(() => {
+  const names = schemaStore
+    .getAllTypeNames()
+    .filter((name) => name.endsWith('Process'));
+  const derived = names.map((name) =>
+    name.replace(/Process$/, '').toLowerCase()
+  );
+
+  if (isFoodProduct.value) {
+    return derived.length
+      ? derived
+      : ['printing', 'milling', 'freezedrying', 'blending', 'harvest'];
+  }
+
+  const fallback = [
+    'assembling',
+    'printing',
+    'milling',
+    'freezedrying',
+    'blending',
+    'harvest',
+    'sale',
+    'labeltagger',
+  ];
+  const list = derived.length ? derived : fallback;
+  const withoutAssembling = list.filter((item) => item !== 'assembling');
+  return ['assembling', ...withoutAssembling];
+});
+
+function onProcessTypeChange(next: string | null) {
+  const chosen = next ?? undefined;
+  processType.value = chosen;
+  const current = ensureProcessWithInputs();
+  if (!current) return;
+  if (!chosen) {
+    current.type = 'process';
+    (current as any).name = 'process';
+    return;
+  }
+  current.type = chosen;
+  (current as any).name = chosen;
+}
+
+function onInputUpdate(index: number, next: InputInstance) {
+  const current = ensureProcessWithInputs();
+  if (!current) return;
+  if (!Array.isArray((current as any).inputInstances)) {
+    (current as any).inputInstances = [];
+  }
+  (current as any).inputInstances.splice(index, 1, next);
+}
+
 const rootEl = ref<HTMLElement | null>(null);
 const expandedIndex = ref<number | null>(null);
 const aiReady = ref(false);
@@ -215,7 +290,6 @@ const lastQuery = ref<string | null>(null);
 const suppressedTypes = ref<Set<string>>(new Set());
 const dirtySinceBlur = ref(false);
 const isLoading = computed(() => suggesting.value);
-const schemaStore = useSchemaStore();
 
 const missingCategory = ref('food');
 const missingCategoryOptions = computed(() => {
@@ -716,6 +790,20 @@ onUnmounted(() => {
   window.removeEventListener('ai-config-updated', refreshAiReady);
 });
 </script>
+
+<style scoped>
+.flow-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.graph-shell {
+  flex: 1;
+  min-height: 0;
+}
+</style>
 
 <style scoped>
 .flow-root {

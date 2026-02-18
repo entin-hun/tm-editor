@@ -3,7 +3,11 @@ import { markRaw } from 'vue';
 import type { ColonyNetworkClient, Network } from '@colony/colony-js';
 import { utils } from 'ethers';
 import type { WalletConnection } from 'src/services/colony/network';
-import { connectWallet, initColonyNetworkClient, requestNetworkSwitch } from 'src/services/colony/network';
+import {
+  connectWallet,
+  initColonyNetworkClient,
+  requestNetworkSwitch,
+} from 'src/services/colony/network';
 
 utils.Logger.setLogLevel(utils.Logger.levels.ERROR);
 
@@ -13,11 +17,11 @@ export const useWalletStore = defineStore('wallet', {
     networkClient: null as ColonyNetworkClient | null,
     networkClientReady: false,
     networkStatus: 'Not connected',
-    lastError: ''
+    lastError: '',
   }),
   getters: {
     address: (state) => state.connection?.address ?? '',
-    chainId: (state) => state.connection?.chainId ?? null
+    chainId: (state) => state.connection?.chainId ?? null,
   },
   actions: {
     async connect() {
@@ -28,12 +32,16 @@ export const useWalletStore = defineStore('wallet', {
         this.connection = markRaw({
           ...connection,
           provider: markRaw(connection.provider),
-          signer: markRaw(connection.signer)
+          signer: markRaw(connection.signer),
         });
-        this.networkStatus = `Wallet connected (${connection.address.slice(0, 6)}...)`;
+        this.networkStatus = `Wallet connected (${connection.address.slice(
+          0,
+          6
+        )}...)`;
         return connection;
       } catch (error) {
-        this.lastError = error instanceof Error ? error.message : 'Wallet connection failed.';
+        this.lastError =
+          error instanceof Error ? error.message : 'Wallet connection failed.';
         this.networkStatus = 'Wallet connection failed';
         throw error;
       }
@@ -45,11 +53,16 @@ export const useWalletStore = defineStore('wallet', {
       try {
         this.lastError = '';
         this.networkStatus = 'Initializing Colony network client...';
-        this.networkClient = markRaw(await initColonyNetworkClient(this.connection, preferredNetwork));
+        this.networkClient = markRaw(
+          await initColonyNetworkClient(this.connection, preferredNetwork)
+        );
         this.networkClientReady = true;
         this.networkStatus = 'Colony network client ready';
       } catch (error) {
-        this.lastError = error instanceof Error ? error.message : 'Network client init failed.';
+        this.lastError =
+          error instanceof Error
+            ? error.message
+            : 'Network client init failed.';
         this.networkClientReady = false;
         this.networkClient = null;
         this.networkStatus = 'Network client init failed';
@@ -63,10 +76,11 @@ export const useWalletStore = defineStore('wallet', {
         await requestNetworkSwitch(preferredNetwork);
         this.networkStatus = 'Wallet network switch requested';
       } catch (error) {
-        this.lastError = error instanceof Error ? error.message : 'Network switch failed.';
+        this.lastError =
+          error instanceof Error ? error.message : 'Network switch failed.';
         this.networkStatus = 'Network switch failed';
         throw error;
       }
-    }
-  }
+    },
+  },
 });

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="text-caption text-grey-6 q-mb-sm">
-      JSONata expression. Tap a field to insert. Root ($) is added automatically.
+      JSONata expression. Tap a field to insert. Path starts with $.instance.
     </div>
     <q-input
       ref="inputRef"
@@ -30,7 +30,9 @@
           <q-item-section>
             <q-item-label>
               {{ option.name }}
-              <span v-if="option.dataType" class="text-grey-6">· {{ option.dataType }}</span>
+              <span v-if="option.dataType" class="text-grey-6"
+                >· {{ option.dataType }}</span
+              >
             </q-item-label>
             <q-item-label caption v-if="option.description">
               {{ option.description }}
@@ -61,9 +63,30 @@
     <div class="q-mt-sm">
       <div class="text-caption text-grey-6 q-mb-xs">Rules</div>
       <div class="row items-center q-gutter-xs">
-        <q-btn label="AND" dense no-caps outline color="primary" @click="insertLogic('and')" />
-        <q-btn label="OR" dense no-caps outline color="primary" @click="insertLogic('or')" />
-        <q-btn label="( )" dense no-caps outline color="primary" @click="insertParentheses" />
+        <q-btn
+          label="AND"
+          dense
+          no-caps
+          outline
+          color="primary"
+          @click="insertLogic('and')"
+        />
+        <q-btn
+          label="OR"
+          dense
+          no-caps
+          outline
+          color="primary"
+          @click="insertLogic('or')"
+        />
+        <q-btn
+          label="( )"
+          dense
+          no-caps
+          outline
+          color="primary"
+          @click="insertParentheses"
+        />
       </div>
     </div>
   </div>
@@ -80,7 +103,9 @@ const inputRef = ref<any>(null);
 const localValue = ref(props.modelValue ?? '');
 const schemaStore = useSchemaStore();
 const cursorPosition = ref(0);
-const suggestions = ref<Array<{ name: string; dataType?: string; description?: string }>>([]);
+const suggestions = ref<
+  Array<{ name: string; dataType?: string; description?: string }>
+>([]);
 const operatorSuggestions = ref<string[]>([]);
 const currentTypeLabel = ref('Pokedex');
 const operatorTypeLabel = ref('value');
@@ -114,7 +139,7 @@ function handleCursor(event?: Event) {
 
 function handleFocus() {
   if (!localValue.value) {
-    localValue.value = '';
+    localValue.value = '$.instance.';
     emitValue();
   }
   handleCursor();
@@ -124,69 +149,70 @@ function getCurrentPath() {
   const text = localValue.value ?? '';
   const cursor = cursorPosition.value ?? text.length;
   const before = text.slice(0, cursor);
-  const match = before.match(/\$[A-Za-z_][\w.]*$/);
+  
+  // Match JSONata paths like $.instance.name or partial paths like $.instance.
+  const match = before.match(/\$(?:\.[\w.\[\]"']*)?$/);
   const hasRoot = Boolean(match);
   const pathText = match ? match[0] : before.trim();
   const startIndex = match ? before.length - pathText.length : 0;
+  
   if (hasRoot && !pathText.startsWith('$')) return null;
+  
   const lastDot = pathText.lastIndexOf('.');
   const basePath = lastDot >= 0 ? pathText.slice(hasRoot ? 1 : 0, lastDot) : '';
   const segments = basePath.split('.').filter(Boolean);
-  const segmentStart = startIndex + (lastDot >= 0 ? lastDot + 1 : hasRoot ? 1 : 0);
+  const segmentStart =
+    startIndex + (lastDot >= 0 ? lastDot + 1 : hasRoot ? 1 : 0);
   const prefix = text.slice(segmentStart, cursor);
   return { segments, prefix, segmentStart, needsRoot: !hasRoot };
 }
 
+// Shared field type definitions - must match exactly what's in the schema
+// Only include fields that actually exist in the @trace.market/types
 const fieldTypeOverrides: Record<string, Record<string, string>> = {
   Pokedex: {
-    instance: 'ProductInstance',
+    instance: 'ProductInstance'
   },
   ProductInstance: {
+    category: 'string',
+    type: 'string',
+    name: 'string',
+    description: 'string',
+    bio: 'boolean',
+    quantity: 'number',
     price: 'Price',
     process: 'Process',
-    packaging: 'PackagingInstance',
-  },
-  FoodInstance: {
-    process: 'Process',
-    packaging: 'PackagingInstance',
-    iDs: 'ID',
-    nutrients: 'FallbackFoodNutrient',
-  },
-  NonFoodInstance: {
-    process: 'Process',
-    packaging: 'PackagingInstance',
+    packaging: 'PackagingInstance'
   },
   Process: {
+    type: 'string',
+    timestamp: 'number',
     facility: 'Facility',
     site: 'Facility',
-    temperatureRange: 'TemperatureRange',
     inputInstances: 'InputInstance',
     impacts: 'Impact',
-    price: 'Price',
     machineInstance: 'MachineInstance',
-    knowHow: 'KnowHow',
+    knowHow: 'KnowHow'
   },
   InputInstance: {
-    instance: 'ProductInstance',
-    transport: 'Transport',
+    type: 'string',
+    quantity: 'number',
+    priceShare: 'number',
+    instance: 'ProductInstance'
   },
-  Transport: {
-    method: 'string',
-    fuelType: 'string',
-  },
-  PackagingInstance: {
-    recyclable: 'boolean',
-  },
-  TemperatureRange: {
-    min: 'number',
-    max: 'number',
+  Facility: {
+    name: 'string',
+    location: 'GeoJSON'
   },
   Price: {
     amount: 'number',
+    currency: 'string',
+    type: 'string'
   },
-  MachineInstance: {
-    quantity: 'number',
-  },
+  PackagingInstance: {
+    type: 'string',
+    recyclable: 'boolean'
+  }
 };
 
 function findFieldName(typeName: string, segment: string) {
@@ -195,7 +221,9 @@ function findFieldName(typeName: string, segment: string) {
   if (!typeDesc?.fields) return undefined;
   if (typeDesc.fields[segment]) return segment;
   const lower = segment.toLowerCase();
-  return Object.keys(typeDesc.fields).find((key) => key.toLowerCase() === lower);
+  return Object.keys(typeDesc.fields).find(
+    (key) => key.toLowerCase() === lower
+  );
 }
 
 function getFieldDataType(typeName: string, fieldName: string) {
@@ -222,13 +250,24 @@ function resolveTypePath(segments: string[]) {
 }
 
 function inferPrimitive(fieldName: string, dataType?: string) {
-  if (dataType === 'number' || dataType === 'boolean' || dataType === 'string') {
+  if (
+    dataType === 'number' ||
+    dataType === 'boolean' ||
+    dataType === 'string'
+  ) {
     return dataType;
   }
   if (schemaStore.getTypeDescription(dataType || '')) {
     return 'object';
   }
-  const numericFields = new Set(['quantity', 'amount', 'timestamp', 'duration', 'min', 'max']);
+  const numericFields = new Set([
+    'quantity',
+    'amount',
+    'timestamp',
+    'duration',
+    'min',
+    'max',
+  ]);
   const booleanFields = new Set(['bio', 'recyclable']);
   if (numericFields.has(fieldName)) return 'number';
   if (booleanFields.has(fieldName)) return 'boolean';
@@ -263,9 +302,15 @@ function getOperatorContext() {
   const parentSegments = segments.slice(0, -1);
   const { typeName: parentType } = resolveTypePath(parentSegments);
   const resolvedFieldName = findFieldName(parentType, fieldName) || fieldName;
-  const fieldDesc = schemaStore.getFieldDescription(parentType, resolvedFieldName);
+  const fieldDesc = schemaStore.getFieldDescription(
+    parentType,
+    resolvedFieldName
+  );
   const dataType = getFieldDataType(parentType, resolvedFieldName);
-  const primitive = inferPrimitive(fieldName, dataType ?? (fieldDesc as any)?.dataType);
+  const primitive = inferPrimitive(
+    fieldName,
+    dataType ?? (fieldDesc as any)?.dataType
+  );
   return { primitive };
 }
 
@@ -279,7 +324,9 @@ function updateSuggestions() {
   const operatorContext = getOperatorContext();
   if (operatorContext) {
     operatorTypeLabel.value = operatorContext.primitive;
-    operatorSuggestions.value = getOperatorSuggestions(operatorContext.primitive);
+    operatorSuggestions.value = getOperatorSuggestions(
+      operatorContext.primitive
+    );
   } else {
     operatorSuggestions.value = [];
   }
@@ -326,7 +373,7 @@ function insertSuggestion(fieldName: string) {
   let adjustedText = text;
   let adjustedCursor = cursor;
   if (needsRoot && !text.includes('$')) {
-    const prefix = '$.';
+    const prefix = '$.instance.';
     adjustedText = prefix + text;
     segmentStart += prefix.length;
     adjustedCursor += prefix.length;

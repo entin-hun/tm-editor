@@ -59,14 +59,23 @@ import { computed, ref, watch } from 'vue';
 import BasicInput from './BasicInput.vue';
 import TimestampInput from './TimestampInput.vue';
 import ProcessEditor from './processes/ProcessEditor.vue';
-import { clone, defaultGenericProcess, defaultNonFoodInstance } from './defaults';
+import {
+  clone,
+  defaultGenericProcess,
+  defaultNonFoodInstance,
+} from './defaults';
 import { useSchemaStore } from 'src/stores/schemaStore';
 
-const props = defineProps<{ modelValue: NonFoodInstance | undefined; showProcess?: boolean }>();
+const props = defineProps<{
+  modelValue: NonFoodInstance | undefined;
+  showProcess?: boolean;
+}>();
 const emit = defineEmits(['update:modelValue']);
 
 const schemaStore = useSchemaStore();
-const value = ref<NonFoodInstance>(props.modelValue ?? clone(defaultNonFoodInstance));
+const value = ref<NonFoodInstance>(
+  props.modelValue ?? clone(defaultNonFoodInstance)
+);
 const showProcess = props.showProcess ?? true;
 
 const processTypeFactory: { [type: string]: Process } = {};
@@ -80,14 +89,25 @@ const processTypes = computed(() => {
   const derived = names.map((name) =>
     name.replace(/Process$/, '').toLowerCase()
   );
-  const fallback = ['assembling', 'printing', 'milling', 'freezedrying', 'blending', 'harvest', 'sale', 'labeltagger'];
+  const fallback = [
+    'assembling',
+    'printing',
+    'milling',
+    'freezedrying',
+    'blending',
+    'harvest',
+    'sale',
+    'labeltagger',
+  ];
   const list = derived.length ? derived : fallback;
   const withoutAssembling = list.filter((item) => item !== 'assembling');
   return ['assembling', ...withoutAssembling];
 });
 
 const processType = ref<string | undefined>(
-  showProcess ? value.value.process?.type ?? DEFAULT_NON_FOOD_PROCESS : undefined
+  showProcess
+    ? value.value.process?.type ?? DEFAULT_NON_FOOD_PROCESS
+    : undefined
 );
 
 watch(processType, (newValue) => {
@@ -97,7 +117,9 @@ watch(processType, (newValue) => {
   value.value.process =
     newValue === undefined
       ? undefined
-      : clone(processTypeFactory[newValue] || (defaultGenericProcess as Process));
+      : clone(
+          processTypeFactory[newValue] || (defaultGenericProcess as Process)
+        );
 
   if (value.value.process && newValue && !processTypeFactory[newValue]) {
     value.value.process.type = newValue;

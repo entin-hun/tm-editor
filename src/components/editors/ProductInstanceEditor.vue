@@ -68,7 +68,6 @@ const emit = defineEmits(['update:modelValue']);
 const decompositionStore = useDecompositionStore();
 const schemaStore = useSchemaStore();
 
-
 const value = ref<ProductInstance | Priced<ProductInstance>>(
   props.modelValue ??
     (props.priced

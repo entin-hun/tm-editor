@@ -19,10 +19,10 @@ export const useAccountStore = defineStore('account', {
     wallet: undefined,
     account: undefined,
     client: createThirdwebClient({
-      clientId: process.env.TW_CLIENT_ID,
+      clientId: process.env.TW_CLIENT_ID || process.env.NEXT_PUBLIC_TW_CLIENT_ID || '',
     }),
     chain: defineChain({
-      id: Number.parseInt(process.env.CHAIN_ID),
+      id: Number.parseInt(process.env.CHAIN_ID || process.env.NEXT_PUBLIC_CHAIN_ID || '10200'),
       rpc: process.env.CHAIN_RPC,
     }),
   }),

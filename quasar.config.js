@@ -8,12 +8,26 @@
 // Configuration for your app
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
-const { configure } = require('quasar/wrappers');
-const path = require('node:path');
-const dotenvExpand = require('dotenv-expand');
-const dotenv = require('dotenv');
+import { configure } from 'quasar/wrappers';
+import path from 'node:path';
+import dotenvExpand from 'dotenv-expand';
+import dotenv from 'dotenv';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import crypto from 'node:crypto';
 
-module.exports = configure(function (ctx) {
+// Polyfill crypto.hash for Node 21 compatibility with Vite 6/7
+if (!crypto.hash) {
+  crypto.hash = (algorithm, data, outputEncoding) => {
+    const hash = crypto.createHash(algorithm);
+    hash.update(data);
+    if (!outputEncoding || outputEncoding === 'buffer') {
+      return hash.digest();
+    }
+    return hash.digest(outputEncoding);
+  };
+}
+
+export default configure(function (ctx) {
   return {
     eslint: {
       // fix: true,
@@ -30,7 +44,7 @@ module.exports = configure(function (ctx) {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['beejs', 'axios'],
+    boot: ['axios', 'auth0'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -89,20 +103,26 @@ module.exports = configure(function (ctx) {
 
       // vitePlugins: [],
       extendViteConf(viteConf) {
-        viteConf.optimizeDeps = viteConf.optimizeDeps || {};
-        const existing = viteConf.optimizeDeps.exclude || [];
-        viteConf.optimizeDeps.exclude = Array.from(
-          new Set([...(Array.isArray(existing) ? existing : [existing]), '@ethersphere/bee-js'])
-        );
+        // viteConf.optimizeDeps = viteConf.optimizeDeps || {};
+        // const existing = viteConf.optimizeDeps.exclude || [];
+        // viteConf.optimizeDeps.exclude = Array.from(
+        //   new Set([
+        //     ...(Array.isArray(existing) ? existing : [existing]),
+        //     '@ethersphere/bee-js',
+        //   ])
+        // );
+        // viteConf.plugins.push(
+        //   nodePolyfills({
+        //     protocolImports: true,
+        //   })
+        // );
         const alias = viteConf.resolve?.alias || {};
         viteConf.resolve = {
           ...viteConf.resolve,
           alias: {
             ...alias,
-            'bee-js-browser': path.resolve(
-              __dirname,
-              'node_modules/@ethersphere/bee-js/dist/index.browser.min.js'
-            ),
+            stream: 'stream-browserify',
+            util: 'util',
           },
         };
       },
@@ -111,6 +131,8 @@ module.exports = configure(function (ctx) {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: true
+      port: 9001,
+      strictPort: true,
       open: false, // opens browser window automatically
     },
 

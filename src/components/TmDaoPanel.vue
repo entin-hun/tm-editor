@@ -6,32 +6,41 @@
           <div class="row items-center justify-between no-wrap">
             <div>
               <div class="text-h6">Wallet & Network</div>
-              <div class="text-subtitle2 text-grey-7">Connect to start interacting with Colony</div>
+              <div class="text-subtitle2 text-grey-7">
+                Connect to start interacting with Colony
+              </div>
             </div>
             <!-- Wallet/Network Status Indicator -->
             <div class="text-right">
-               <div class="text-caption text-grey-7">
-                 {{ networkStatus }}
-                 <q-badge v-if="networkName" :color="networkMismatch ? 'negative' : 'secondary'" class="q-ml-sm">
-                   {{ networkName }}
-                 </q-badge>
-               </div>
+              <div class="text-caption text-grey-7">
+                {{ networkStatus }}
+                <q-badge
+                  v-if="networkName"
+                  :color="networkMismatch ? 'negative' : 'secondary'"
+                  class="q-ml-sm"
+                >
+                  {{ networkName }}
+                </q-badge>
+              </div>
             </div>
           </div>
 
           <!-- Network Mismatch Warning -->
-          <div v-if="networkMismatch && colonyAddress" class="q-mt-sm row items-center q-gutter-sm bg-red-1 q-pa-sm rounded-borders text-negative">
-             <q-icon name="warning" size="sm" />
-             <div class="col">
-               Wallet network does not match selected Colony network.
-             </div>
-             <q-btn
-               flat
-               color="primary"
-               label="Switch"
-               dense
-               @click="switchWalletNetwork"
-             />
+          <div
+            v-if="networkMismatch && colonyAddress"
+            class="q-mt-sm row items-center q-gutter-sm bg-red-1 q-pa-sm rounded-borders text-negative"
+          >
+            <q-icon name="warning" size="sm" />
+            <div class="col">
+              Wallet network does not match selected Colony network.
+            </div>
+            <q-btn
+              flat
+              color="primary"
+              label="Switch"
+              dense
+              @click="switchWalletNetwork"
+            />
           </div>
           <div v-else-if="walletError" class="q-mt-sm text-negative">
             {{ walletError }}
@@ -49,25 +58,42 @@
                 dense
               >
                 <template v-slot:append>
-                  <q-icon v-if="colonyLoading" name="hourglass_empty" class="cursor-pointer animate-spin" />
+                  <q-icon
+                    v-if="colonyLoading"
+                    name="hourglass_empty"
+                    class="cursor-pointer animate-spin"
+                  />
                   <q-icon v-else name="search" />
                 </template>
               </q-input>
             </div>
             <div class="col-12 col-md-5">
-               <div v-if="colonyLabel" class="text-h6 text-primary q-pl-md" style="line-height: 40px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                  {{ colonyLabel }}
-               </div>
-               <div v-else class="text-grey-5 q-pl-md text-italic" style="line-height: 40px;">
-                  (No Colony Loaded)
-               </div>
+              <div
+                v-if="colonyLabel"
+                class="text-h6 text-primary q-pl-md"
+                style="
+                  line-height: 40px;
+                  white-space: nowrap;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                "
+              >
+                {{ colonyLabel }}
+              </div>
+              <div
+                v-else
+                class="text-grey-5 q-pl-md text-italic"
+                style="line-height: 40px"
+              >
+                (No Colony Loaded)
+              </div>
             </div>
           </div>
 
           <div class="text-caption text-grey-7 q-mt-xs q-pl-xs">
             DAO Network: <span class="text-weight-bold">Arbitrum One</span>
           </div>
-          
+
           <div class="q-mt-sm text-grey-7">
             {{ colonyStatus }}
           </div>
@@ -82,22 +108,46 @@
         <q-card-section class="row items-center justify-between q-pb-sm">
           <div>
             <div class="text-h6">Dashboard</div>
-            <div class="text-subtitle2 text-grey-7">Overview of cooperative performance, team balances, and contributors.</div>
+            <div class="text-subtitle2 text-grey-7">
+              Overview of cooperative performance, team balances, and
+              contributors.
+            </div>
           </div>
-          <q-btn outline color="primary" label="Refresh Colony" @click="refreshColony" dense />
+          <q-btn
+            outline
+            color="primary"
+            label="Refresh Colony"
+            @click="refreshColony"
+            dense
+          />
         </q-card-section>
         <q-separator />
-          <q-card-section>
-          <div class="text-subtitle2 text-grey-7 q-mb-sm">Skill Teams (Sub-skills)</div>
+        <q-card-section>
+          <div class="text-subtitle2 text-grey-7 q-mb-sm">
+            Skill Teams (Sub-skills)
+          </div>
           <q-list bordered separator>
-            <q-expansion-item v-for="team in teams" :key="team.id" :label="team.name">
+            <q-expansion-item
+              v-for="team in teams"
+              :key="team.id"
+              :label="team.name"
+            >
               <q-card flat>
                 <q-card-section>
-                  <div class="text-caption text-grey-7">Funding Pot: {{ team.fundingPotId }}</div>
-                  <div class="text-caption text-grey-7">Balance: {{ team.balance }} {{ tokenSymbol }}</div>
-                  <div class="text-caption text-grey-7 q-mt-sm">Contributors</div>
+                  <div class="text-caption text-grey-7">
+                    Funding Pot: {{ team.fundingPotId }}
+                  </div>
+                  <div class="text-caption text-grey-7">
+                    Balance: {{ team.balance }} {{ tokenSymbol }}
+                  </div>
+                  <div class="text-caption text-grey-7 q-mt-sm">
+                    Contributors
+                  </div>
                   <q-list bordered separator class="q-mt-sm">
-                    <q-item v-for="contributor in team.contributors" :key="contributor.address">
+                    <q-item
+                      v-for="contributor in team.contributors"
+                      :key="contributor.address"
+                    >
                       <q-item-section>
                         <q-item-label>{{ contributor.address }}</q-item-label>
                         <q-item-label caption>
@@ -110,7 +160,9 @@
                         />
                       </q-item-section>
                       <q-item-section side>
-                        <q-item-label>{{ contributor.percentage }}%</q-item-label>
+                        <q-item-label
+                          >{{ contributor.percentage }}%</q-item-label
+                        >
                       </q-item-section>
                     </q-item>
                     <q-item v-if="team.contributors.length === 0">
@@ -143,10 +195,20 @@
               />
             </div>
             <div class="col-12 col-md-5">
-              <q-input v-model="subSkillName" label="Sub-skill Name" outlined dense />
+              <q-input
+                v-model="subSkillName"
+                label="Sub-skill Name"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-3">
-              <q-btn color="primary" label="Create Sub-skill" @click="createSubSkill" dense />
+              <q-btn
+                color="primary"
+                label="Create Sub-skill"
+                @click="createSubSkill"
+                dense
+              />
             </div>
           </div>
         </q-card-section>
@@ -155,19 +217,37 @@
       <q-card>
         <q-card-section class="q-pb-sm">
           <div class="text-h6">Members</div>
-          <div class="text-subtitle2 text-grey-7">Invite new members by minting tokens to them.</div>
+          <div class="text-subtitle2 text-grey-7">
+            Invite new members by minting tokens to them.
+          </div>
         </q-card-section>
         <q-separator />
         <q-card-section>
           <div class="row q-col-gutter-sm items-end">
             <div class="col-12 col-md-6">
-              <q-input v-model="inviteAddress" label="Wallet Address" outlined dense />
+              <q-input
+                v-model="inviteAddress"
+                label="Wallet Address"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-3">
-              <q-input v-model="inviteAmount" label="Token Amount" outlined dense />
+              <q-input
+                v-model="inviteAmount"
+                label="Token Amount"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-3">
-              <q-btn color="primary" label="Invite Member" @click="inviteMember" dense icon="person_add" />
+              <q-btn
+                color="primary"
+                label="Invite Member"
+                @click="inviteMember"
+                dense
+                icon="person_add"
+              />
             </div>
           </div>
         </q-card-section>
@@ -176,7 +256,9 @@
       <q-card>
         <q-card-section class="q-pb-sm">
           <div class="text-h6">Tasks</div>
-          <div class="text-subtitle2 text-grey-7">Create tasks with rich specs, assign teams, and release payments.</div>
+          <div class="text-subtitle2 text-grey-7">
+            Create tasks with rich specs, assign teams, and release payments.
+          </div>
         </q-card-section>
         <q-separator />
         <q-card-section>
@@ -198,7 +280,12 @@
           </div>
           <div class="row q-col-gutter-sm q-mt-sm">
             <div class="col-12 col-md-6">
-              <q-input v-model="taskBudgetAmount" label="Budget Amount" outlined dense />
+              <q-input
+                v-model="taskBudgetAmount"
+                label="Budget Amount"
+                outlined
+                dense
+              />
             </div>
             <div class="col-12 col-md-6">
               <q-select
@@ -214,13 +301,22 @@
             </div>
           </div>
           <div class="q-mt-md">
-            <q-editor v-model="taskSpecHtml" :toolbar="editorToolbar" min-height="120px" />
+            <q-editor
+              v-model="taskSpecHtml"
+              :toolbar="editorToolbar"
+              min-height="120px"
+            />
             <div class="text-caption text-grey-7 q-mt-xs">
               {{ taskSpecStatus }}
             </div>
           </div>
           <div class="q-mt-md">
-            <q-btn color="primary" label="Create Task" @click="createTask" dense />
+            <q-btn
+              color="primary"
+              label="Create Task"
+              @click="createTask"
+              dense
+            />
           </div>
         </q-card-section>
       </q-card>
@@ -228,12 +324,22 @@
       <q-card>
         <q-card-section>
           <div class="text-h6">Governance</div>
-          <div class="text-subtitle2 text-grey-7">Propose motions and stake reputation in disputes.</div>
+          <div class="text-subtitle2 text-grey-7">
+            Propose motions and stake reputation in disputes.
+          </div>
         </q-card-section>
         <q-separator />
         <q-card-section>
-          <div class="text-subtitle2 text-grey-7 q-mb-sm">Guided Action Builder</div>
-          <q-tabs v-model="motionTab" dense active-color="primary" indicator-color="primary" align="left">
+          <div class="text-subtitle2 text-grey-7 q-mb-sm">
+            Guided Action Builder
+          </div>
+          <q-tabs
+            v-model="motionTab"
+            dense
+            active-color="primary"
+            indicator-color="primary"
+            align="left"
+          >
             <q-tab name="metadata" label="Update Metadata" />
             <q-tab name="transfer" label="Request Token Transfer" />
           </q-tabs>
@@ -248,8 +354,19 @@
               outlined
             />
             <div class="q-mt-md">
-              <q-btn outline color="primary" label="Upload Metadata to Swarm" @click="uploadMetadata" />
-              <q-btn class="q-ml-sm" outline color="primary" label="Build Metadata Action" @click="buildMetadataAction" />
+              <q-btn
+                outline
+                color="primary"
+                label="Upload Metadata to Swarm"
+                @click="uploadMetadata"
+              />
+              <q-btn
+                class="q-ml-sm"
+                outline
+                color="primary"
+                label="Build Metadata Action"
+                @click="buildMetadataAction"
+              />
             </div>
           </div>
 
@@ -270,7 +387,13 @@
                 </div>
               </div>
               <div class="col-12 col-md-4">
-                <q-input v-model.number="transferChildSkillIndex" type="number" label="Child Skill Index" outlined dense />
+                <q-input
+                  v-model.number="transferChildSkillIndex"
+                  type="number"
+                  label="Child Skill Index"
+                  outlined
+                  dense
+                />
                 <div class="text-caption text-grey-7 q-mt-xs">
                   0 for same team; use child index when nesting teams.
                 </div>
@@ -289,18 +412,38 @@
             </div>
             <div class="row q-col-gutter-sm q-mt-sm">
               <div class="col-12 col-md-6">
-                <q-input v-model="transferRecipient" label="Recipient" outlined dense />
+                <q-input
+                  v-model="transferRecipient"
+                  label="Recipient"
+                  outlined
+                  dense
+                />
               </div>
               <div class="col-12 col-md-3">
-                <q-input v-model="transferAmount" label="Amount" outlined dense />
+                <q-input
+                  v-model="transferAmount"
+                  label="Amount"
+                  outlined
+                  dense
+                />
               </div>
-              
             </div>
             <div class="q-mt-md">
-              <q-input v-model="transferToken" label="Token Address (optional)" outlined dense />
+              <q-input
+                v-model="transferToken"
+                label="Token Address (optional)"
+                outlined
+                dense
+              />
             </div>
             <div class="q-mt-md">
-              <q-btn outline color="primary" label="Build Transfer Action" @click="buildTransferAction" dense />
+              <q-btn
+                outline
+                color="primary"
+                label="Build Transfer Action"
+                @click="buildTransferAction"
+                dense
+              />
             </div>
           </div>
 
@@ -308,20 +451,42 @@
             <div class="text-subtitle2 text-grey-7">Motion Payload</div>
             <div class="row q-col-gutter-sm q-mt-sm">
               <div class="col-12 col-md-4">
-                <q-input v-model.number="motionDomainId" type="number" label="Skill Team ID" outlined dense />
+                <q-input
+                  v-model.number="motionDomainId"
+                  type="number"
+                  label="Skill Team ID"
+                  outlined
+                  dense
+                />
               </div>
               <div class="col-12 col-md-8">
-                <q-input v-model="motionAltTarget" label="Alt Target (0x0 for colony)" outlined dense />
+                <q-input
+                  v-model="motionAltTarget"
+                  label="Alt Target (0x0 for colony)"
+                  outlined
+                  dense
+                />
                 <div class="text-caption text-grey-7 q-mt-xs">
-                  Use 0x0 for colony actions. Set a contract address only for extensions.
+                  Use 0x0 for colony actions. Set a contract address only for
+                  extensions.
                 </div>
               </div>
             </div>
             <div class="q-mt-md">
-              <q-input v-model="motionAction" label="Action (hex bytes)" outlined dense />
+              <q-input
+                v-model="motionAction"
+                label="Action (hex bytes)"
+                outlined
+                dense
+              />
             </div>
             <div class="q-mt-md">
-              <q-btn color="primary" label="Create Motion" @click="createMotion" dense />
+              <q-btn
+                color="primary"
+                label="Create Motion"
+                @click="createMotion"
+                dense
+              />
             </div>
           </div>
         </q-card-section>
@@ -338,7 +503,7 @@ import { useColonyStore } from 'src/stores/colony';
 import TimestampInput from 'src/components/editors/TimestampInput.vue';
 
 defineOptions({
-  name: 'TmDaoPanel'
+  name: 'TmDaoPanel',
 });
 
 const $q = useQuasar();
@@ -346,7 +511,9 @@ const walletStore = useWalletStore();
 const colonyStore = useColonyStore();
 
 const walletAddress = computed(() => walletStore.address || '');
-const chainId = computed(() => (walletStore.chainId ? String(walletStore.chainId) : ''));
+const chainId = computed(() =>
+  walletStore.chainId ? String(walletStore.chainId) : ''
+);
 const networkStatus = computed(() => walletStore.networkStatus);
 const walletError = computed(() => walletStore.lastError || '');
 const canInitNetwork = computed(() => Boolean(walletStore.address));
@@ -377,8 +544,8 @@ const tokenOptions = computed(() =>
     ? [
         {
           label: `${colonyStore.tokenInfo.symbol} (${colonyStore.tokenInfo.address})`,
-          value: colonyStore.tokenInfo.address
-        }
+          value: colonyStore.tokenInfo.address,
+        },
       ]
     : []
 );
@@ -389,7 +556,9 @@ const teamOptions = computed(() =>
 const colonyStatus = computed(() => colonyStore.status);
 const colonyLoading = computed(() => colonyStore.loading);
 const colonyError = computed(() => colonyStore.lastError || '');
-const canLoadColony = computed(() => walletStore.networkClientReady && colonyAddress.value.trim().length > 0);
+const canLoadColony = computed(
+  () => walletStore.networkClientReady && colonyAddress.value.trim().length > 0
+);
 const networkMismatch = computed(() => {
   if (!walletStore.chainId || !preferredNetwork.value) {
     return false;
@@ -423,7 +592,7 @@ const editorToolbar = [
   ['bold', 'italic', 'underline', 'strike'],
   ['quote', 'unordered', 'ordered', 'outdent', 'indent'],
   ['link', 'hr'],
-  ['formatting']
+  ['formatting'],
 ];
 
 const subSkillParentId = ref<number | null>(null);
@@ -453,18 +622,31 @@ const isAutoInitializing = ref(false);
 async function connectWallet() {
   try {
     await walletStore.connect();
-    $q.notify({ message: 'Wallet connected.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Wallet connected.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    $q.notify({ message: 'Wallet connection failed.', color: 'negative', icon: 'error' });
+    $q.notify({
+      message: 'Wallet connection failed.',
+      color: 'negative',
+      icon: 'error',
+    });
   }
 }
 
 async function initColonyNetwork() {
   try {
     await walletStore.initNetworkClient(preferredNetwork.value as any);
-    $q.notify({ message: 'Colony network client ready.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Colony network client ready.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to init network client.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to init network client.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -472,9 +654,16 @@ async function initColonyNetwork() {
 async function switchWalletNetwork() {
   try {
     await walletStore.suggestNetworkSwitch(preferredNetwork.value as any);
-    $q.notify({ message: 'Switch request sent to wallet.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Switch request sent to wallet.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to switch wallet network.';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Failed to switch wallet network.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -485,7 +674,8 @@ async function loadColony() {
     lastLoadedColony.value = colonyAddress.value.trim();
     $q.notify({ message: 'Colony loaded.', color: 'primary', icon: 'check' });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load colony.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to load colony.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -493,9 +683,14 @@ async function loadColony() {
 async function refreshColony() {
   try {
     await colonyStore.refreshColony();
-    $q.notify({ message: 'Colony refreshed.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Colony refreshed.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to refresh colony.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to refresh colony.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -507,13 +702,18 @@ async function inviteMember() {
     }
     await colonyStore.mintTokens({
       address: inviteAddress.value,
-      amount: inviteAmount.value
+      amount: inviteAmount.value,
     });
     inviteAddress.value = '';
     inviteAmount.value = '';
-    $q.notify({ message: 'Member invited (tokens minted).', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Member invited (tokens minted).',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to invite member.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to invite member.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -526,17 +726,24 @@ async function createTask() {
     if (!taskSpecSwarmUrl.value) {
       throw new Error('Task spec not yet uploaded to Swarm.');
     }
-    const selectedTeam = teams.value.find((team) => team.id === taskTeamId.value);
+    const selectedTeam = teams.value.find(
+      (team) => team.id === taskTeamId.value
+    );
     const skillId = Number(selectedTeam?.skillId || 0);
     await colonyStore.createTask({
       specification: taskSpecSwarmUrl.value,
       domainId: taskTeamId.value,
       skillId,
-      dueDate: taskDueDate.value ? Number(taskDueDate.value) : 0
+      dueDate: taskDueDate.value ? Number(taskDueDate.value) : 0,
     });
-    $q.notify({ message: 'Task transaction submitted.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Task transaction submitted.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create task.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to create task.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -546,11 +753,16 @@ async function createMotion() {
     await colonyStore.createMotion({
       domainId: motionDomainId.value,
       altTarget: motionAltTarget.value,
-      action: motionAction.value
+      action: motionAction.value,
     });
-    $q.notify({ message: 'Motion transaction submitted.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Motion transaction submitted.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create motion.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to create motion.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -559,9 +771,14 @@ async function uploadMetadata() {
   try {
     const result = await colonyStore.uploadMetadataToSwarm(metadataJson.value);
     metadataJson.value = result.url;
-    $q.notify({ message: 'Metadata uploaded to Swarm.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Metadata uploaded to Swarm.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to upload metadata.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to upload metadata.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -579,15 +796,16 @@ async function uploadTaskSpecBackground() {
       budget: taskBudgetAmount.value
         ? {
             amount: taskBudgetAmount.value,
-            token: taskBudgetToken.value || tokenAddress.value
+            token: taskBudgetToken.value || tokenAddress.value,
           }
-        : undefined
+        : undefined,
     });
     const result = await colonyStore.uploadTaskSpecToSwarm(payload);
     taskSpecSwarmUrl.value = result.url;
     taskSpecStatus.value = `Saved to ${result.url}`;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to upload task spec.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to upload task spec.';
     taskSpecStatus.value = message;
   }
 }
@@ -599,12 +817,17 @@ async function createSubSkill() {
     }
     await colonyStore.createSubSkill({
       parentDomainId: subSkillParentId.value,
-      name: subSkillName.value
+      name: subSkillName.value,
     });
     subSkillName.value = '';
-    $q.notify({ message: 'Sub-skill created.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Sub-skill created.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to create sub-skill.';
+    const message =
+      error instanceof Error ? error.message : 'Failed to create sub-skill.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -614,9 +837,16 @@ function buildMetadataAction() {
     const action = colonyStore.buildEditColonyAction(metadataJson.value);
     motionAction.value = action;
     motionAltTarget.value = '0x0000000000000000000000000000000000000000';
-    $q.notify({ message: 'Metadata action built.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Metadata action built.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to build metadata action.';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Failed to build metadata action.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -626,11 +856,14 @@ function buildTransferAction() {
     if (!transferTeamId.value) {
       throw new Error('Select a team for transfer.');
     }
-    const permissionDomainId = transferPermissionDomainId.value ?? transferTeamId.value;
+    const permissionDomainId =
+      transferPermissionDomainId.value ?? transferTeamId.value;
     if (!permissionDomainId) {
       throw new Error('Select a permission team for transfer.');
     }
-    const selectedTeam = teams.value.find((team) => team.id === transferTeamId.value);
+    const selectedTeam = teams.value.find(
+      (team) => team.id === transferTeamId.value
+    );
     const skillId = Number(selectedTeam?.skillId || 0);
     const action = colonyStore.buildAddPaymentAction({
       permissionDomainId,
@@ -639,13 +872,20 @@ function buildTransferAction() {
       token: transferToken.value,
       amount: transferAmount.value,
       domainId: transferTeamId.value,
-      skillId
+      skillId,
     });
     motionAction.value = action;
     motionAltTarget.value = '0x0000000000000000000000000000000000000000';
-    $q.notify({ message: 'Transfer action built.', color: 'primary', icon: 'check' });
+    $q.notify({
+      message: 'Transfer action built.',
+      color: 'primary',
+      icon: 'check',
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to build transfer action.';
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Failed to build transfer action.';
     $q.notify({ message, color: 'negative', icon: 'error' });
   }
 }
@@ -656,6 +896,23 @@ onMounted(() => {
     colonyAddress.value = storedColony;
   }
 });
+
+// Auto-load colony when network client becomes ready and we have an address
+watch(
+  [() => walletStore.networkClientReady, colonyAddress],
+  async ([isReady, address]) => {
+    if (
+      isReady &&
+      address &&
+      address.trim().length > 0 &&
+      address !== lastLoadedColony.value &&
+      !colonyStore.loading
+    ) {
+      await loadColony();
+    }
+  },
+  { immediate: true }
+);
 
 watch(teams, (value) => {
   if (!taskTeamId.value && value.length > 0) {
@@ -686,7 +943,6 @@ watch([taskSpecHtml, taskBudgetAmount, taskBudgetToken], () => {
     uploadTaskSpecBackground();
   }, 800);
 });
-
 
 watch(
   [preferredNetwork, () => walletStore.address, () => walletStore.chainId],

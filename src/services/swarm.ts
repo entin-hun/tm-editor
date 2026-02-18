@@ -21,13 +21,14 @@ export async function uploadSwarmJson(payload: unknown) {
     headers: {
       'swarm-postage-batch-id': batchId,
       'swarm-pin': 'true',
-      'Content-Type': 'application/json'
-    }
+      'Content-Type': 'application/json',
+    },
   });
 
-  const reference = typeof response.data === 'string'
-    ? response.data.trim()
-    : response.data?.reference || response.data?.hash || '';
+  const reference =
+    typeof response.data === 'string'
+      ? response.data.trim()
+      : response.data?.reference || response.data?.hash || '';
 
   if (!reference) {
     throw new Error('Swarm upload failed: missing reference');
@@ -36,7 +37,7 @@ export async function uploadSwarmJson(payload: unknown) {
   return {
     reference,
     url: `bzz://${reference}`,
-    gatewayUrl: `${baseUrl}/bzz/${reference}`
+    gatewayUrl: `${baseUrl}/bzz/${reference}`,
   };
 }
 

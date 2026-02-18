@@ -168,7 +168,6 @@ watch(processType, (newValue) => {
     process.type = newValue;
     process.name = newValue;
   }
-
 });
 
 // Keep the select in sync when a process is injected (e.g., AI suggestions)
@@ -179,7 +178,6 @@ watch(
   },
   { immediate: true }
 );
-
 
 // Emit deep changes so parent stays in sync
 watch(
@@ -211,6 +209,4 @@ if (!value.value.process && props.isRoot) {
 }
 processType.value =
   value.value.process?.type ?? (props.isRoot ? 'blending' : undefined);
-
-
 </script>

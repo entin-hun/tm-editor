@@ -18,7 +18,8 @@ function readText(filePath) {
 }
 
 function parseTypeDefinitions(content) {
-  const interfacePattern = /export\s+interface\s+(\w+)(?:\s+extends\s+(\w+))?\s*\{([\s\S]*?)\}/g;
+  const interfacePattern =
+    /export\s+interface\s+(\w+)(?:\s+extends\s+(\w+))?\s*\{([\s\S]*?)\}/g;
   const interfaces = [];
 
   let match;
@@ -27,7 +28,9 @@ function parseTypeDefinitions(content) {
     const fields = body
       .split('\n')
       .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('//') && !line.startsWith('/*'))
+      .filter(
+        (line) => line && !line.startsWith('//') && !line.startsWith('/*')
+      )
       .map((line) => {
         const fieldMatch = line.match(/(\w+)(\?)?:\s*([^;]+);?/);
         if (fieldMatch) {
@@ -112,24 +115,46 @@ function main() {
   const projectRoot = path.resolve(__dirname, '..');
   const typesPath = findFirstExisting([
     path.resolve(projectRoot, '..', 'tm-types', 'src', 'index.d.ts'),
-    path.resolve(projectRoot, 'node_modules', '@trace.market', 'types', 'src', 'index.d.ts'),
+    path.resolve(
+      projectRoot,
+      'node_modules',
+      '@trace.market',
+      'types',
+      'src',
+      'index.d.ts'
+    ),
   ]);
 
   const changelogPath = findFirstExisting([
     path.resolve(projectRoot, '..', 'tm-types', 'CHANGELOG.md'),
-    path.resolve(projectRoot, 'node_modules', '@trace.market', 'types', 'CHANGELOG.md'),
+    path.resolve(
+      projectRoot,
+      'node_modules',
+      '@trace.market',
+      'types',
+      'CHANGELOG.md'
+    ),
   ]);
 
   const descriptionsPath = findFirstExisting([
     path.resolve(projectRoot, '..', 'tm-types', 'src', 'descriptions.json'),
-    path.resolve(projectRoot, 'node_modules', '@trace.market', 'types', 'src', 'descriptions.json'),
+    path.resolve(
+      projectRoot,
+      'node_modules',
+      '@trace.market',
+      'types',
+      'src',
+      'descriptions.json'
+    ),
   ]);
 
   if (!typesPath) {
     throw new Error('Unable to locate index.d.ts from @trace.market/types.');
   }
   if (!descriptionsPath) {
-    throw new Error('Unable to locate descriptions.json from @trace.market/types.');
+    throw new Error(
+      'Unable to locate descriptions.json from @trace.market/types.'
+    );
   }
 
   const typeSource = readText(typesPath);
@@ -137,16 +162,28 @@ function main() {
   const { interfaces } = parseTypeDefinitions(typeSource);
   const { merged, addedFields } = mergeDescriptions(descriptions, interfaces);
 
-  const outputPath = path.resolve(projectRoot, 'public', 'merged-descriptions.json');
+  const outputPath = path.resolve(
+    projectRoot,
+    'public',
+    'merged-descriptions.json'
+  );
   fs.writeFileSync(outputPath, JSON.stringify(merged, null, 2));
   console.log(`Merged schema written to ${outputPath}`);
 
-  const reportPath = path.resolve(projectRoot, 'public', 'types-merge-report.json');
+  const reportPath = path.resolve(
+    projectRoot,
+    'public',
+    'types-merge-report.json'
+  );
   fs.writeFileSync(reportPath, JSON.stringify({ addedFields }, null, 2));
   console.log(`Types merge report written to ${reportPath}`);
 
   if (changelogPath) {
-    const changelogOutput = path.resolve(projectRoot, 'public', 'types-changelog.md');
+    const changelogOutput = path.resolve(
+      projectRoot,
+      'public',
+      'types-changelog.md'
+    );
     fs.copyFileSync(changelogPath, changelogOutput);
     console.log(`Types changelog copied to ${changelogOutput}`);
   }

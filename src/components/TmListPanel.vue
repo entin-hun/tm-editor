@@ -4,7 +4,10 @@
       <q-btn fab icon="refresh" @click="reload" />
     </q-page-sticky>
 
-    <div v-if="listRequest.isLoading.value || feedRequest.isLoading.value" class="fixed-center">
+    <div
+      v-if="listRequest.isLoading.value || feedRequest.isLoading.value"
+      class="fixed-center"
+    >
       <div class="column content-center items-center">
         <q-spinner size="4em" />
         <div class="q-py-md">Fetching Data...</div>
@@ -20,38 +23,70 @@
       </div>
     </div>
     <div v-else class="column q-gutter-md">
-      <div v-if="feedRequest.error.value" class="q-pa-md text-negative bg-red-1 rounded-borders">
+      <div
+        v-if="feedRequest.error.value"
+        class="q-pa-md text-negative bg-red-1 rounded-borders"
+      >
         <q-icon name="warning" class="q-mr-sm" />
         Feed Error: {{ feedRequest.error.value }}
       </div>
 
-      <q-expansion-item
-        label="Instances"
-        icon="inventory_2"
-        default-opened
-      >
+      <q-expansion-item label="Instances" icon="inventory_2" default-opened>
         <div v-if="getFeedItems('tm-editor-instance').length" class="row">
-           <q-card v-for="(entry, idx) in getFeedItems('tm-editor-instance')" :key="'feed-inst-'+idx" flat bordered class="q-ma-sm col-12" style="width: 100%">
-              <q-card-section>
-                 <div class="row items-center justify-between">
-                   <div class="text-caption text-grey-8">
-                     <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
-                     {{ entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : 'Unknown' }}
-                   </div>
-                   <div class="row q-gutter-xs">
-                     <q-btn icon="edit" flat round dense color="primary" @click="$emit('load-entry', entry)">
-                       <q-tooltip>Load</q-tooltip>
-                     </q-btn>
-                     <q-btn icon="share" flat round dense color="secondary" @click="$emit('share', entry)">
-                       <q-tooltip>Share</q-tooltip>
-                     </q-btn>
-                   </div>
-                 </div>
-                 <div class="q-mt-sm text-body2" style="word-break: break-word;">
-                   {{ getEntryValues(entry.value) }}
-                 </div>
-              </q-card-section>
-           </q-card>
+          <q-card
+            v-for="(entry, idx) in getFeedItems('tm-editor-instance')"
+            :key="'feed-inst-' + idx"
+            flat
+            bordered
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center justify-between">
+                <div class="text-caption text-grey-8">
+                  <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
+                  {{
+                    entry.updatedAt
+                      ? new Date(entry.updatedAt).toLocaleString()
+                      : 'Unknown'
+                  }}
+                  <span
+                    v-if="entry.key"
+                    class="q-ml-sm text-weight-bold text-primary cursor-pointer"
+                    @click="copyToClipboard(entry.key)"
+                  >
+                    #{{ entry.key }}
+                    <q-tooltip>Copy Slug</q-tooltip>
+                  </span>
+                </div>
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    icon="edit"
+                    flat
+                    round
+                    dense
+                    color="primary"
+                    @click="$emit('load-entry', entry)"
+                  >
+                    <q-tooltip>Load</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    icon="share"
+                    flat
+                    round
+                    dense
+                    color="secondary"
+                    @click="$emit('share', entry)"
+                  >
+                    <q-tooltip>Share</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+              <div class="q-mt-sm text-body2" style="word-break: break-word">
+                {{ getEntryValues(entry.value) }}
+              </div>
+            </q-card-section>
+          </q-card>
         </div>
 
         <div v-if="instanceNfts.length" class="row">
@@ -106,34 +141,76 @@
             </q-card-section>
           </q-card>
         </div>
-        <div v-if="!instanceNfts.length && !getFeedItems('tm-editor-instance').length" class="q-pa-md text-caption text-grey-6">
+        <div
+          v-if="
+            !instanceNfts.length && !getFeedItems('tm-editor-instance').length
+          "
+          class="q-pa-md text-caption text-grey-6"
+        >
           No instance items found.
         </div>
       </q-expansion-item>
 
-      <q-expansion-item label="Tools" icon="precision_manufacturing" default-opened>
+      <q-expansion-item
+        label="Tools"
+        icon="precision_manufacturing"
+        default-opened
+      >
         <div v-if="getFeedItems('tm-editor-machine').length" class="row">
-           <q-card v-for="(entry, idx) in getFeedItems('tm-editor-machine')" :key="'feed-machine-'+idx" flat bordered class="q-ma-sm col-12" style="width: 100%">
-              <q-card-section>
-                 <div class="row items-center justify-between">
-                   <div class="text-caption text-grey-8">
-                     <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
-                     {{ entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : 'Unknown' }}
-                   </div>
-                   <div class="row q-gutter-xs">
-                     <q-btn icon="edit" flat round dense color="primary" @click="$emit('load-entry', entry)">
-                       <q-tooltip>Load</q-tooltip>
-                     </q-btn>
-                     <q-btn icon="share" flat round dense color="secondary" @click="$emit('share', entry)">
-                       <q-tooltip>Share</q-tooltip>
-                     </q-btn>
-                   </div>
-                 </div>
-                 <div class="q-mt-sm text-body2" style="word-break: break-word;">
-                   {{ getEntryValues(entry.value) }}
-                 </div>
-              </q-card-section>
-           </q-card>
+          <q-card
+            v-for="(entry, idx) in getFeedItems('tm-editor-machine')"
+            :key="'feed-machine-' + idx"
+            flat
+            bordered
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center justify-between">
+                <div class="text-caption text-grey-8">
+                  <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
+                  {{
+                    entry.updatedAt
+                      ? new Date(entry.updatedAt).toLocaleString()
+                      : 'Unknown'
+                  }}
+                  <span
+                    v-if="entry.key"
+                    class="q-ml-sm text-weight-bold text-primary cursor-pointer"
+                    @click="copyToClipboard(entry.key)"
+                  >
+                    #{{ entry.key }}
+                    <q-tooltip>Copy Slug</q-tooltip>
+                  </span>
+                </div>
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    icon="edit"
+                    flat
+                    round
+                    dense
+                    color="primary"
+                    @click="$emit('load-entry', entry)"
+                  >
+                    <q-tooltip>Load</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    icon="share"
+                    flat
+                    round
+                    dense
+                    color="secondary"
+                    @click="$emit('share', entry)"
+                  >
+                    <q-tooltip>Share</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+              <div class="q-mt-sm text-body2" style="word-break: break-word">
+                {{ getEntryValues(entry.value) }}
+              </div>
+            </q-card-section>
+          </q-card>
         </div>
 
         <div v-if="machineNfts.length" class="row">
@@ -188,34 +265,72 @@
             </q-card-section>
           </q-card>
         </div>
-        <div v-if="!machineNfts.length && !getFeedItems('tm-editor-machine').length" class="q-pa-md text-caption text-grey-6">
+        <div
+          v-if="
+            !machineNfts.length && !getFeedItems('tm-editor-machine').length
+          "
+          class="q-pa-md text-caption text-grey-6"
+        >
           No tool items found.
         </div>
       </q-expansion-item>
 
       <q-expansion-item label="Know-How" icon="menu_book" default-opened>
         <div v-if="getFeedItems('tm-editor-knowHow').length" class="row">
-           <q-card v-for="(entry, idx) in getFeedItems('tm-editor-knowHow')" :key="'feed-kh-'+idx" flat bordered class="q-ma-sm col-12" style="width: 100%">
-              <q-card-section>
-                 <div class="row items-center justify-between">
-                   <div class="text-caption text-grey-8">
-                     <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
-                     {{ entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : 'Unknown' }}
-                   </div>
-                   <div class="row q-gutter-xs">
-                     <q-btn icon="edit" flat round dense color="primary" @click="$emit('load-entry', entry)">
-                       <q-tooltip>Load</q-tooltip>
-                     </q-btn>
-                     <q-btn icon="share" flat round dense color="secondary" @click="$emit('share', entry)">
-                       <q-tooltip>Share</q-tooltip>
-                     </q-btn>
-                   </div>
-                 </div>
-                 <div class="q-mt-sm text-body2" style="word-break: break-word;">
-                   {{ getEntryValues(entry.value) }}
-                 </div>
-              </q-card-section>
-           </q-card>
+          <q-card
+            v-for="(entry, idx) in getFeedItems('tm-editor-knowHow')"
+            :key="'feed-kh-' + idx"
+            flat
+            bordered
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center justify-between">
+                <div class="text-caption text-grey-8">
+                  <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
+                  {{
+                    entry.updatedAt
+                      ? new Date(entry.updatedAt).toLocaleString()
+                      : 'Unknown'
+                  }}
+                  <span
+                    v-if="entry.key"
+                    class="q-ml-sm text-weight-bold text-primary cursor-pointer"
+                    @click="copyToClipboard(entry.key)"
+                  >
+                    #{{ entry.key }}
+                    <q-tooltip>Copy Slug</q-tooltip>
+                  </span>
+                </div>
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    icon="edit"
+                    flat
+                    round
+                    dense
+                    color="primary"
+                    @click="$emit('load-entry', entry)"
+                  >
+                    <q-tooltip>Load</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    icon="share"
+                    flat
+                    round
+                    dense
+                    color="secondary"
+                    @click="$emit('share', entry)"
+                  >
+                    <q-tooltip>Share</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+              <div class="q-mt-sm text-body2" style="word-break: break-word">
+                {{ getEntryValues(entry.value) }}
+              </div>
+            </q-card-section>
+          </q-card>
         </div>
 
         <div v-if="knowHowNfts.length" class="row">
@@ -270,7 +385,12 @@
             </q-card-section>
           </q-card>
         </div>
-        <div v-if="!knowHowNfts.length && !getFeedItems('tm-editor-knowHow').length" class="q-pa-md text-caption text-grey-6">
+        <div
+          v-if="
+            !knowHowNfts.length && !getFeedItems('tm-editor-knowHow').length
+          "
+          class="q-pa-md text-caption text-grey-6"
+        >
           No know-how items found.
         </div>
       </q-expansion-item>
@@ -293,16 +413,7 @@ import CreateListingDialog from './CreateListingDialog.vue';
 import CancelListingDialog from './CancelListingDialog.vue';
 import { getColonyNetworkClient, Network } from '@colony/colony-js';
 import { providers } from 'ethers';
-
-function getBeeCtor() {
-  const beeJs = (window as any).BeeJs as
-    | { Bee: new (url: string, options?: unknown) => any }
-    | undefined;
-  if (!beeJs?.Bee) {
-    throw new Error('BeeJs is not available. Reload after BeeJS boot completes.');
-  }
-  return beeJs.Bee;
-}
+import { Bee } from '@ethersphere/bee-js';
 
 const { chain, client, account } = useAccountStore();
 const $q = useQuasar();
@@ -388,7 +499,11 @@ const listRequest = useAsyncState<NftWithMetadata[]>(async () => {
 const swarmApiUrl = process.env.SWARM_API_URL;
 const feedTopics = [
   { label: 'Instance Feed', topic: 'tm-editor-instance', icon: 'inventory_2' },
-  { label: 'Tool Feed', topic: 'tm-editor-machine', icon: 'precision_manufacturing' },
+  {
+    label: 'Tool Feed',
+    topic: 'tm-editor-machine',
+    icon: 'precision_manufacturing',
+  },
   { label: 'Know-How Feed', topic: 'tm-editor-knowHow', icon: 'menu_book' },
 ];
 
@@ -411,7 +526,6 @@ const feedRequest = useAsyncState<FeedLatest[]>(async () => {
     throw new Error('SWARM_API_URL is not configured');
   }
 
-  const Bee = getBeeCtor();
   const bee = new Bee(swarmApiUrl);
   const owner = account.address;
 
@@ -435,12 +549,12 @@ const feedRequest = useAsyncState<FeedLatest[]>(async () => {
           const reader = bee.makeFeedReader('sequence', topic, owner);
           feedUpdate = await reader.download();
         } catch (err: any) {
-             // If we can't download the feed update (e.g. 404), maybe try just using manifestRef if it looks like a hash?
-             // But actually manifestRef is just the feed manifest.
-             // If reader fails, we likely have no updates.
-             throw err;
+          // If we can't download the feed update (e.g. 404), maybe try just using manifestRef if it looks like a hash?
+          // But actually manifestRef is just the feed manifest.
+          // If reader fails, we likely have no updates.
+          throw err;
         }
-        
+
         let parsed;
         if (feedUpdate.reference) {
           // feedUpdate.reference is a Reference (hex string)
@@ -452,15 +566,15 @@ const feedRequest = useAsyncState<FeedLatest[]>(async () => {
           // CAUTION: bee-js spreads the response.data into the return object.
           // If response.data was an Array, it becomes { "0": item0, "1": item1... }
           if (feedUpdate[0] !== undefined) {
-             const arr = [];
-             let i = 0;
-             while(feedUpdate[i] !== undefined) {
-               arr.push(feedUpdate[i]);
-               i++;
-             }
-             parsed = arr;
+            const arr = [];
+            let i = 0;
+            while (feedUpdate[i] !== undefined) {
+              arr.push(feedUpdate[i]);
+              i++;
+            }
+            parsed = arr;
           } else {
-             parsed = feedUpdate; // Fallback for single object or empty
+            parsed = feedUpdate; // Fallback for single object or empty
           }
         }
 
@@ -471,16 +585,14 @@ const feedRequest = useAsyncState<FeedLatest[]>(async () => {
         const items = Array.isArray(parsed) ? parsed : [];
         // No sort needed if we just display them, but newest first is good.
         // Assuming feed is append-only, but verify if items have timestamps.
-        const sortedItems = items
-          .slice()
-          .sort((a: any, b: any) => {
-            const aTime = Date.parse(a?.updatedAt || '') || 0;
-            const bTime = Date.parse(b?.updatedAt || '') || 0;
-            return bTime - aTime;
-          });
+        const sortedItems = items.slice().sort((a: any, b: any) => {
+          const aTime = Date.parse(a?.updatedAt || '') || 0;
+          const bTime = Date.parse(b?.updatedAt || '') || 0;
+          return bTime - aTime;
+        });
 
         const latestEntry = sortedItems[0];
-        
+
         return {
           label: topicInfo.label,
           topic: topicInfo.topic,
@@ -514,13 +626,12 @@ const feedLatest = computed(() => feedRequest.state.value || []);
 function getEntryValues(valueObj: any): string {
   if (!valueObj || typeof valueObj !== 'object') return String(valueObj);
   return Object.values(valueObj)
-    .filter(v => v !== null && v !== undefined && typeof v !== 'object') // simple scalar values
+    .filter((v) => v !== null && v !== undefined && typeof v !== 'object') // simple scalar values
     .join(', ');
 }
 
 // Listings logic moved to bottom
 const listingsRequest = useAsyncState(async () => {
-
   const contract = getContract({
     address: process.env.MARKETPLACE_CONTRACT,
     chain,

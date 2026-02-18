@@ -115,7 +115,6 @@
 </template>
 
 <script setup lang="ts">
-import assert from 'assert';
 import { useDialogPluginComponent, copyToClipboard } from 'quasar';
 import { useAccountStore } from 'src/stores/account';
 import { getContract, Hex, sendAndConfirmTransaction } from 'thirdweb';
@@ -161,7 +160,7 @@ const createListingTx = useAsyncState<Hex | undefined>(
       throw new Error('NFT has no sale process');
     }
 
-    assert(process.price !== undefined, 'NFT has no price');
+    if (process.price === undefined) throw new Error('NFT has no price');
 
     const rawInstance = process.inputInstances[0]?.instance;
     if (typeof rawInstance !== 'object' || !('category' in rawInstance)) {
@@ -169,7 +168,8 @@ const createListingTx = useAsyncState<Hex | undefined>(
     }
     const productInstance = rawInstance as FoodInstance;
 
-    assert('expiryDate' in productInstance, 'NFT has no expiryDate');
+    if (!('expiryDate' in productInstance))
+      throw new Error('NFT has no expiryDate');
 
     const transaction = createListing({
       contract: marketplaceContract,
@@ -183,9 +183,9 @@ const createListingTx = useAsyncState<Hex | undefined>(
       ),
       isReservedListing: false,
     });
-
-    assert(accountStore.account !== undefined);
-    assert(accountStore.wallet !== undefined);
+    if (accountStore.account === undefined)
+      throw new Error('Account undefined');
+    if (accountStore.wallet === undefined) throw new Error('Wallet undefined');
 
     if (accountStore.wallet.getChain()?.id !== accountStore.chain.id)
       await accountStore.wallet.switchChain(accountStore.chain);
@@ -204,9 +204,8 @@ const approveTx = useAsyncState<Hex | undefined>(async () => {
     to: marketplaceContract.address,
   });
 
-  assert(accountStore.account !== undefined);
-  assert(accountStore.wallet !== undefined);
-
+  if (accountStore.account === undefined) throw new Error('Account undefined');
+  if (accountStore.wallet === undefined) throw new Error('Wallet undefined');
   if (accountStore.wallet.getChain()?.id !== accountStore.chain.id)
     await accountStore.wallet.switchChain(accountStore.chain);
 

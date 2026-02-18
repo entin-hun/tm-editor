@@ -21,7 +21,11 @@
             label="category"
             default-value=""
           />
-          <BasicInput v-model="value.ownerId" label="ownerId" default-value="" />
+          <BasicInput
+            v-model="value.ownerId"
+            label="ownerId"
+            default-value=""
+          />
           <BasicInput
             v-model.number="value.quantity"
             label="quantity"
@@ -41,7 +45,12 @@
             default-value=""
           />
         </template>
-        <HrEditor v-if="showHr" v-model="value.hr" label="hr" default-value="" />
+        <HrEditor
+          v-if="showHr"
+          v-model="value.hr"
+          label="hr"
+          default-value=""
+        />
       </div>
     </q-expansion-item>
   </q-card>
