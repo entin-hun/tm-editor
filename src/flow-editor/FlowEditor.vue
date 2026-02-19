@@ -444,7 +444,8 @@ const placeNodeAvoidingOverlap = (
   setNodePosition(node, x, y);
 };
 
-const isSpawnedProcessNode = (node: any) => Boolean((node as any).__tmSpawned);
+const isSpawnedProcessNode = (node: any) =>
+  Boolean((node as any).__tmSpawned) || spawnedProcessNodes.has((node as any).id);
 const isSpawnedResourceNode = (node: any) => {
   const meta = (node as any).__tmMeta as { kind?: string } | undefined;
   return typeof meta?.kind === "string" && meta.kind.startsWith("spawned-");
@@ -1199,6 +1200,10 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
      identically to the central process (Idef0Node with all fields). */
   const nextProcess = graph.addNode(new ProcessNode());
   if (!nextProcess) return;
+    /* Mark as spawned immediately, before any new connection events trigger
+      auto-arrange, so this node is never mistaken for the central process. */
+    spawnedProcessNodes.add(nextProcess.id);
+    (nextProcess as any).__tmSpawned = true;
 
   const newProcessData = {
     type: "process",
@@ -1236,8 +1241,6 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
   const finalX = baseX + offsetX + (isPortrait ? stagger : 0);
   const finalY = baseY + offsetY + (isPortrait ? 0 : stagger);
   setNodePosition(nextProcess, finalX, finalY);
-  spawnedProcessNodes.add(nextProcess.id);
-  (nextProcess as any).__tmSpawned = true;
   spawnedProcessCount++;
   /* Wait for Vue to mount the new node DOM before refreshing
      connection coordinates – otherwise port positions are (0,0). */
@@ -1478,7 +1481,9 @@ watch(
 watch(
   () => [baklava.displayedGraph.nodes.length, baklava.displayedGraph.connections.length],
   () => {
-    scheduleLayoutRefresh();
+    /* Avoid re-running full auto-arrange on every graph mutation; this was
+       causing spawned process position jumps during + actions. */
+    refreshConnectionCoords();
   }
 );
 </script>
