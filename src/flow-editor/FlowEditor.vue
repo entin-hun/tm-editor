@@ -1273,6 +1273,59 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
   });
 };
 
+/** Spawn a process to the LEFT of an input ResourceNode.
+ *  The spawned process's output connects to a new left-side input on the
+ *  input node, mirroring the right-side spawn from output nodes. */
+const addProcessFromInputConnector = (node: ResourceNode, _intf: NodeInterface<unknown>) => {
+  if ((node as any).resourceType !== "input") return;
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+
+  const nextProcess = graph.addNode(new ProcessNode());
+  if (!nextProcess) return;
+  spawnedProcessNodes.add(nextProcess.id);
+  (nextProcess as any).__tmSpawned = true;
+
+  const newProcessData = {
+    type: "process",
+    category: "process",
+    name: undefined,
+    inputInstances: [],
+    outputNodes: [],
+    controlNodes: [],
+  } as any;
+
+  (nextProcess as any).process = newProcessData;
+  (nextProcess as any).onProcessUpdate = (next: ProcessShape) => {
+    Object.assign(newProcessData, next);
+  };
+  nextProcess.title = "Process";
+
+  const isPortrait = isPortraitLayout();
+  /* Give the spawned process an input port and an output port.
+     The output connects back to the input resource node. */
+  nextProcess.addInputPort("Input 1", isPortrait ? "top" : "left");
+  const outputPort = nextProcess.addOutputPort("Output 1", "right");
+
+  /* Add a left-side input port on the input resource node so the
+     spawned process output can connect into it. */
+  const inputPortOnResource = (node as ResourceNode).addInputPort("Source", "left");
+  if (outputPort && inputPortOnResource) graph.addConnection(outputPort, inputPortOnResource);
+
+  /* Position to the LEFT of the input node, with collision avoidance */
+  const baseX = (node as any).position?.x ?? 0;
+  const baseY = (node as any).position?.y ?? 0;
+  const processSize = getNodeSizeForLayout(nextProcess);
+  const startX = baseX - processSize.width - 80;
+  const startY = baseY;
+  placeNodeAvoidingOverlap(graph, nextProcess, startX, startY, isPortrait ? "x" : "y", [node.id]);
+
+  nextTick(() => {
+    const delays = [0, 120, 280];
+    delays.forEach((d) => setTimeout(() => refreshConnectionCoords(), d));
+  });
+};
+
 const deleteSpawnedProcess = (node: any) => {
   const graph = baklava.displayedGraph;
   if (!graph) return;
@@ -1371,15 +1424,30 @@ const addControlNodeForProcessNode = (node: ProcessNode) => {
   const controlOutput = controlNode ? Object.values(controlNode.outputs)[0] : undefined;
   if (controlPort && controlOutput) graph.addConnection(controlOutput, controlPort);
 
+  /* Place controls in a vertical column below the spawned process,
+     stacking each new control under the previously existing ones. */
   const baseX = (node as any).position?.x ?? 0;
   const baseY = (node as any).position?.y ?? 0;
   const processSize = getNodeSizeForLayout(node);
-  const controlSize = controlNode ? getNodeSizeForLayout(controlNode) : { width: 440, height: 260 };
-  const rowGap = 24;
-  const offsetX = index * (controlSize.width + rowGap);
-  const offsetY = processSize.height + 40;
+  const colGapCtrl = 24;
+  /* Calculate vertical offset: start below the process, then stack
+     below any existing control children. */
+  let offsetY = processSize.height + 40;
+  const children = spawnedProcessChildren.get(node.id);
+  if (children) {
+    children.forEach((childId) => {
+      const childNode = graph.nodes.find((n: any) => n.id === childId) as any;
+      if (!childNode) return;
+      const childMeta = childNode.__tmMeta as { kind?: string } | undefined;
+      if (childMeta?.kind !== "spawned-control") return;
+      const childSize = getNodeSizeForLayout(childNode);
+      const childBottom = (childNode.position?.y ?? 0) + childSize.height + colGapCtrl;
+      const candidateOffset = childBottom - baseY;
+      if (candidateOffset > offsetY) offsetY = candidateOffset;
+    });
+  }
   if (controlNode) {
-    placeNodeAvoidingOverlap(graph, controlNode, baseX + offsetX, baseY + offsetY, "x", [node.id]);
+    placeNodeAvoidingOverlap(graph, controlNode, baseX, baseY + offsetY, "y", [node.id]);
     trackSpawnedChild(node.id, controlNode.id);
   }
 
@@ -1572,6 +1640,7 @@ watch(
                         : () => deleteResourceNode(node as ResourceNode)
                   "
                   :on-output-connector="(intf) => addProcessFromOutputConnector(node as ResourceNode, intf)"
+                  :on-input-connector="(intf) => addProcessFromInputConnector(node as ResourceNode, intf)"
                 />
               </div>
             </template>

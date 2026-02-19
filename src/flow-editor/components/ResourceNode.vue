@@ -20,6 +20,7 @@ const props = defineProps<{
   node: AbstractNode;
   onDelete?: () => void;
   onOutputConnector?: (intf: NodeInterface<unknown>) => void;
+  onInputConnector?: (intf: NodeInterface<unknown>) => void;
 }>();
 
 type ResourceFields = {
@@ -273,8 +274,6 @@ const outputPointerStart = ref<{ x: number; y: number } | null>(null);
 const handleOutputPointerDown = (event: PointerEvent, intf: NodeInterface<unknown>) => {
   if (!isOutput.value) return;
   if (readLocation(intf) !== "right") return;
-  /* Stop propagation so the node drag handler (handleNodePointerDown)
-     never fires – otherwise clicking + starts a drag that never ends. */
   event.stopPropagation();
   event.preventDefault();
   outputPointerStart.value = { x: event.clientX, y: event.clientY };
@@ -292,6 +291,52 @@ const handleOutputPointerUp = (event: PointerEvent, intf: NodeInterface<unknown>
   const dy = event.clientY - start.y;
   if (Math.hypot(dx, dy) > 6) return;
   props.onOutputConnector?.(intf);
+};
+
+/* Input connector: + badge on the left side of input nodes */
+const inputPointerStart = ref<{ x: number; y: number } | null>(null);
+const handleInputPointerDown = (event: PointerEvent, intf: NodeInterface<unknown>) => {
+  if (!isInput.value) return;
+  event.stopPropagation();
+  event.preventDefault();
+  inputPointerStart.value = { x: event.clientX, y: event.clientY };
+};
+
+const handleInputPointerUp = (event: PointerEvent, intf: NodeInterface<unknown>) => {
+  if (!isInput.value) return;
+  event.stopPropagation();
+  event.preventDefault();
+  const start = inputPointerStart.value;
+  inputPointerStart.value = null;
+  if (!start) return;
+  const dx = event.clientX - start.x;
+  const dy = event.clientY - start.y;
+  if (Math.hypot(dx, dy) > 6) return;
+  props.onInputConnector?.(intf);
+};
+
+/* Standalone input connector handlers (when no left ports exist yet) */
+const handleInputPointerDownStandalone = (event: PointerEvent) => {
+  if (!isInput.value) return;
+  event.stopPropagation();
+  event.preventDefault();
+  inputPointerStart.value = { x: event.clientX, y: event.clientY };
+};
+
+const handleInputPointerUpStandalone = (event: PointerEvent) => {
+  if (!isInput.value) return;
+  event.stopPropagation();
+  event.preventDefault();
+  const start = inputPointerStart.value;
+  inputPointerStart.value = null;
+  if (!start) return;
+  const dx = event.clientX - start.x;
+  const dy = event.clientY - start.y;
+  if (Math.hypot(dx, dy) > 6) return;
+  /* Pass the right-side output as the interface reference; the
+     FlowEditor handler will create the actual left-side input port. */
+  const rightIntf = rightPorts.value[0];
+  if (rightIntf) props.onInputConnector?.(rightIntf);
 };
 
 const clampCount = (count: number) => (count > 0 ? count : 1);
@@ -341,6 +386,18 @@ const getBadgeStyle = (index: number, count: number): CSSProperties => {
   return {
     position: "absolute",
     left: "calc(100% + 10px)",
+    top: `${fraction * 100}%`,
+    transform: "translate(0, -50%)",
+  };
+};
+
+/** Position for the + badge to the left of a left-side port */
+const getBadgeStyleLeft = (index: number, count: number): CSSProperties => {
+  const safeCount = clampCount(count);
+  const fraction = (index + 1) / (safeCount + 1);
+  return {
+    position: "absolute",
+    left: "calc(0% - 26px)",
     top: `${fraction * 100}%`,
     transform: "translate(0, -50%)",
   };
@@ -432,13 +489,30 @@ const syncKnowHowHash = () => {
 
 <template>
   <div class="resource-node">
-    <NodeInterfaceView
-      v-for="(intf, index) in leftPorts"
-      :key="intf.id"
-      :node="node"
-      :intf="intf"
-      :style="getPortStyle('left', index, leftPorts.length)"
-    />
+    <template v-for="(intf, index) in leftPorts" :key="intf.id">
+      <NodeInterfaceView
+        :node="node"
+        :intf="intf"
+        :style="getPortStyle('left', index, leftPorts.length)"
+      />
+      <!-- + badge on the left side of input nodes (when left ports exist) -->
+      <span
+        v-if="isInput"
+        class="output-add-badge"
+        :style="getBadgeStyleLeft(index, leftPorts.length)"
+        @pointerdown.capture.stop.prevent="handleInputPointerDown($event, intf)"
+        @pointerup.capture.stop.prevent="handleInputPointerUp($event, intf)"
+      >+</span>
+    </template>
+
+    <!-- Standalone + badge for input nodes that have no left ports yet -->
+    <span
+      v-if="isInput && leftPorts.length === 0"
+      class="output-add-badge"
+      :style="{ position: 'absolute', left: 'calc(0% - 26px)', top: '50%', transform: 'translate(0, -50%)' }"
+      @pointerdown.capture.stop.prevent="handleInputPointerDownStandalone($event)"
+      @pointerup.capture.stop.prevent="handleInputPointerUpStandalone($event)"
+    >+</span>
 
     <template v-for="(intf, index) in rightPorts" :key="intf.id">
       <NodeInterfaceView
