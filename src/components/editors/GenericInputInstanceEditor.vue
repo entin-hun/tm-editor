@@ -57,7 +57,9 @@ const ProductInstanceEditor = defineAsyncComponent(
 const props = defineProps<{ modelValue: GenericInputInstance | undefined }>();
 
 const value = ref(props.modelValue ?? clone(defaultGenericInputInstance));
-const type = ref<'hash' | 'json'>('json');
+const type = ref<'hash' | 'json'>(
+  typeof value.value.instance === 'string' ? 'hash' : 'json'
+);
 
 const typeOptions = ['hash', 'json'];
 

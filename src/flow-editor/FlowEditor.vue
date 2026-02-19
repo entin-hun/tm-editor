@@ -313,6 +313,15 @@ const nodePositionCache = new Map<string, { x: number; y: number }>();
 const spawnedProcessNodes = new Set<string>();
 const spawnedProcessChildren = new Map<string, Set<string>>();
 
+/** Pending reconnections saved by clearGraph, consumed by buildGraphFromModel */
+const pendingSpawnReconnections: {
+  spawnedNodeId: string;
+  centralMeta: NodeMeta;
+  direction: "central-to-spawned" | "spawned-to-central";
+  spawnedPortKey: string | null;
+  centralPortKey: string | null;
+}[] = [];
+
 const trackSpawnedChild = (parentId: string, childId: string) => {
   let set = spawnedProcessChildren.get(parentId);
   if (!set) {
@@ -488,7 +497,70 @@ const clearGraph = () => {
   const graph = baklava.displayedGraph as any;
   if (!graph?.removeNode) return;
   snapshotNodePositions();
-  [...graph.nodes].forEach((node) => graph.removeNode(node));
+
+  /* Preserve spawned nodes: only remove central (non-spawned) nodes.
+     Also remove connections that touch any removed (central) node. */
+  const nodesToRemove = [...graph.nodes].filter(
+    (n: any) => !isSpawnedProcessNode(n) && !isSpawnedResourceNode(n)
+  );
+  const removedIds = new Set(nodesToRemove.map((n: any) => n.id));
+
+  /* Snapshot how spawned processes are connected to central nodes so we
+     can re-establish those connections after rebuild.  Each entry records
+     which central-node meta a spawned process was linked to. */
+  pendingSpawnReconnections.length = 0;
+  graph.connections.forEach((c: any) => {
+    const fromId = c.from?.nodeId;
+    const toId = c.to?.nodeId;
+    if (!fromId || !toId) return;
+    /* Central → Spawned (output connector → spawned process input) */
+    if (removedIds.has(fromId) && !removedIds.has(toId)) {
+      const centralNode = graph.nodes.find((n: any) => n.id === fromId);
+      const meta = centralNode?.__tmMeta as NodeMeta | undefined;
+      if (meta) {
+        const toPortKey = Object.entries((graph.nodes.find((n: any) => n.id === toId) as any)?.inputs ?? {}).find(
+          ([, intf]: [string, any]) => intf.id === c.to?.id
+        )?.[0];
+        pendingSpawnReconnections.push({
+          spawnedNodeId: toId,
+          centralMeta: meta,
+          direction: "central-to-spawned",
+          spawnedPortKey: toPortKey ?? null,
+          centralPortKey: Object.entries(centralNode?.outputs ?? {}).find(
+            ([, intf]: [string, any]) => intf.id === c.from?.id
+          )?.[0] ?? null,
+        });
+      }
+    }
+    /* Spawned → Central (spawned process output → input node input) */
+    if (!removedIds.has(fromId) && removedIds.has(toId)) {
+      const centralNode = graph.nodes.find((n: any) => n.id === toId);
+      const meta = centralNode?.__tmMeta as NodeMeta | undefined;
+      if (meta) {
+        const fromPortKey = Object.entries((graph.nodes.find((n: any) => n.id === fromId) as any)?.outputs ?? {}).find(
+          ([, intf]: [string, any]) => intf.id === c.from?.id
+        )?.[0];
+        pendingSpawnReconnections.push({
+          spawnedNodeId: fromId,
+          centralMeta: meta,
+          direction: "spawned-to-central",
+          spawnedPortKey: fromPortKey ?? null,
+          centralPortKey: Object.entries(centralNode?.inputs ?? {}).find(
+            ([, intf]: [string, any]) => intf.id === c.to?.id
+          )?.[0] ?? null,
+        });
+      }
+    }
+  });
+
+  /* Remove connections touching central nodes */
+  const connectionsToRemove = [...graph.connections].filter(
+    (c: any) => removedIds.has(c.from?.nodeId) || removedIds.has(c.to?.nodeId)
+  );
+  connectionsToRemove.forEach((c: any) => graph.removeConnection(c));
+
+  /* Remove central nodes */
+  nodesToRemove.forEach((node: any) => graph.removeNode(node));
 };
 
 const scheduleLayoutRefresh = () => {
@@ -794,6 +866,56 @@ const buildGraphFromModel = () => {
     const controlOutput = Object.values(extraControl.outputs)[0];
     if (controlPort && controlOutput) graph.addConnection(controlOutput, controlPort);
   });
+
+  /* Reconnect spawned processes that were preserved across clearGraph */
+  if (pendingSpawnReconnections.length > 0) {
+    const allNodes = [...graph.nodes];
+    const metaKey = (m: NodeMeta) => `${m.kind}:${"index" in m ? m.index : ""}`;
+    const nodeByMeta = new Map<string, any>();
+    for (const n of allNodes) {
+      const m = (n as any).__tmMeta as NodeMeta | undefined;
+      if (m) nodeByMeta.set(metaKey(m), n);
+    }
+    for (const rec of pendingSpawnReconnections) {
+      const centralNode = nodeByMeta.get(metaKey(rec.centralMeta));
+      const spawnedNode = allNodes.find((n: any) => n.id === rec.spawnedNodeId);
+      if (!centralNode || !spawnedNode) continue;
+
+      try {
+        if (rec.direction === "central-to-spawned") {
+          /* Central output port → spawned input port */
+          const fromIntf = rec.centralPortKey
+            ? (centralNode.outputs as any)?.[rec.centralPortKey]
+            : Object.values(centralNode.outputs ?? {})[0];
+          const toIntf = rec.spawnedPortKey
+            ? (spawnedNode.inputs as any)?.[rec.spawnedPortKey]
+            : Object.values(spawnedNode.inputs ?? {})[0];
+          if (fromIntf && toIntf) graph.addConnection(fromIntf, toIntf);
+        } else {
+          /* Spawned output port → central input port.
+             The central input ResourceNode may not have a left-side input
+             port after rebuild — recreate it if needed. */
+          const fromIntf = rec.spawnedPortKey
+            ? (spawnedNode.outputs as any)?.[rec.spawnedPortKey]
+            : Object.values(spawnedNode.outputs ?? {})[0];
+
+          let toIntf = rec.centralPortKey
+            ? (centralNode.inputs as any)?.[rec.centralPortKey]
+            : null;
+
+          /* If input ResourceNode has no matching left port, add one */
+          if (!toIntf && typeof centralNode.addInputPort === "function") {
+            toIntf = centralNode.addInputPort("Source", "left");
+          }
+
+          if (fromIntf && toIntf) graph.addConnection(fromIntf, toIntf);
+        }
+      } catch (e) {
+        console.warn("[FlowEditor] Failed to reconnect spawned node", rec, e);
+      }
+    }
+    pendingSpawnReconnections.length = 0;
+  }
 
   nextTick(() => {
     if (hasNewUnpositionedNode) {
