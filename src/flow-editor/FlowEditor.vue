@@ -463,8 +463,13 @@ const isSpawnedResourceNode = (node: any) => {
 const isSpawnedProcess = (node: any) =>
   Boolean((node as any).__tmSpawned) || spawnedProcessNodes.has((node as any).id);
 
-/** Check if a central node has any spawned process connected to it. */
+/** Bumped whenever spawned connections change so template expressions re-evaluate. */
+const spawnedConnectionVer = ref(0);
+
+/** Check if a central node has any spawned process connected to it.
+ *  Reads `spawnedConnectionVer` so Vue re-renders when it changes. */
 const nodeHasSpawnedConnection = (node: any): boolean => {
+  void spawnedConnectionVer.value; // reactive dependency
   const graph = baklava.displayedGraph as any;
   if (!graph?.connections) return false;
   const nodeId = node.id;
@@ -932,6 +937,73 @@ const buildGraphFromModel = () => {
     }
     pendingSpawnReconnections.length = 0;
   }
+
+  /* When spawned nodes exist, do NOT run the full auto-arrange (it resets
+     ALL central positions and causes overlaps).  Instead, position only
+     the unpositioned central nodes smartly, then refresh connections. */
+  if (hasNewUnpositionedNode && spawnedProcessNodes.size > 0) {
+    const allGraphNodes = [...graph.nodes];
+    const isPortrait2 = isPortraitLayout();
+
+    allGraphNodes.forEach((n: any) => {
+      const key = n.__tmKey as string | undefined;
+      if (!key) return;
+      if (nodePositionCache.has(key)) return; // already positioned
+      if (isSpawnedProcessNode(n) || isSpawnedResourceNode(n)) return;
+
+      const meta = n.__tmMeta as NodeMeta | undefined;
+      if (!meta) return;
+
+      /* Determine the x/y lane for this node's type */
+      let startX = processNode.position.x;
+      let startY = processNode.position.y;
+      const nodeSize = getNodeSizeForLayout(n);
+      const processSize = getNodeSizeForLayout(processNode);
+
+      if (meta.kind === "input") {
+        startX = processNode.position.x - nodeSize.width - 120;
+        /* Find lowest Y of same-lane central inputs + all spawned nodes */
+        let lowestY = processNode.position.y;
+        allGraphNodes.forEach((other: any) => {
+          if (other === n) return;
+          const oMeta = other.__tmMeta as NodeMeta | undefined;
+          const isSameLane = oMeta?.kind === "input";
+          const isSpawned = isSpawnedProcessNode(other) || isSpawnedResourceNode(other);
+          if (!isSameLane && !isSpawned) return;
+          const oSize = getNodeSizeForLayout(other);
+          const bot = (other.position?.y ?? 0) + oSize.height;
+          if (bot > lowestY) lowestY = bot;
+        });
+        startY = lowestY + 24;
+      } else if (meta.kind === "output-extra") {
+        startX = processNode.position.x + processSize.width + 120;
+        let lowestY = processNode.position.y;
+        allGraphNodes.forEach((other: any) => {
+          if (other === n) return;
+          const oMeta = other.__tmMeta as NodeMeta | undefined;
+          const isOutputLane = oMeta?.kind === "output-root" || oMeta?.kind === "output-extra";
+          const isSpawned = isSpawnedProcessNode(other) || isSpawnedResourceNode(other);
+          if (!isOutputLane && !isSpawned) return;
+          const oSize = getNodeSizeForLayout(other);
+          const bot = (other.position?.y ?? 0) + oSize.height;
+          if (bot > lowestY) lowestY = bot;
+        });
+        startY = lowestY + 24;
+      } else if (meta.kind === "control-extra" || meta.kind === "machine"
+                 || meta.kind === "site-main" || meta.kind === "hr-main") {
+        startY = processNode.position.y + processSize.height + 40;
+      } else {
+        startX = processNode.position.x;
+        startY = processNode.position.y - nodeSize.height - 80;
+      }
+
+      placeNodeAvoidingOverlap(graph, n, startX, startY, isPortrait2 ? "x" : "y", [processNode.id]);
+      nodePositionCache.set(key, { x: n.position.x, y: n.position.y });
+    });
+    hasNewUnpositionedNode = false;
+  }
+
+  spawnedConnectionVer.value++;
 
   nextTick(() => {
     if (hasNewUnpositionedNode) {
@@ -1545,6 +1617,7 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
   nextProcess.addOutputPort("Output 1", "right");
 
   if (inputPort) graph.addConnection(intf, inputPort);
+  spawnedConnectionVer.value++;
 
   /* Position the spawned process relative to the output node it spawned
      from, using collision-aware placement so recursive (multi-level)
@@ -1603,6 +1676,7 @@ const addProcessFromInputConnector = (node: ResourceNode, _intf: NodeInterface<u
      spawned process output can connect into it. */
   const inputPortOnResource = (node as ResourceNode).addInputPort("Source", "left");
   if (outputPort && inputPortOnResource) graph.addConnection(outputPort, inputPortOnResource);
+  spawnedConnectionVer.value++;
 
   /* Position to the LEFT of the input node, with collision avoidance */
   const baseX = (node as any).position?.x ?? 0;
@@ -1641,6 +1715,7 @@ const deleteSpawnedProcess = (node: any) => {
   );
   toRemove.forEach((c: any) => graph.removeConnection(c));
   graph.removeNode(node);
+  spawnedConnectionVer.value++;
   nextTick(() => refreshConnectionCoords());
 };
 
@@ -1759,6 +1834,7 @@ const deleteSpawnedResourceNode = (node: ResourceNode) => {
   );
   toRemove.forEach((c: any) => graph.removeConnection(c));
   graph.removeNode(node);
+  spawnedConnectionVer.value++;
   nextTick(() => refreshConnectionCoords());
 };
 
