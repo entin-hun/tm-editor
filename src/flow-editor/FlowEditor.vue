@@ -311,7 +311,6 @@ const nodePositionCache = new Map<string, { x: number; y: number }>();
 /** Track spawned (connector-added) process nodes for deletion and anti-stacking */
 const spawnedProcessNodes = new Set<string>();
 const spawnedProcessChildren = new Map<string, Set<string>>();
-let spawnedProcessCount = 0;
 
 const trackSpawnedChild = (parentId: string, childId: string) => {
   let set = spawnedProcessChildren.get(parentId);
@@ -1255,19 +1254,23 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
 
   if (inputPort) graph.addConnection(intf, inputPort);
 
+  /* Position the spawned process relative to the output node it spawned
+     from, using collision-aware placement so recursive (multi-level)
+     spawns never stack on top of each other. */
   const baseX = (node as any).position?.x ?? 0;
   const baseY = (node as any).position?.y ?? 0;
-  const offsetX = isPortrait ? 0 : 520;
-  const offsetY = isPortrait ? 320 : 0;
-  /* Stagger each spawned process so they don't stack on each other */
-  const stagger = spawnedProcessCount * (isPortrait ? 80 : 80);
-  const finalX = baseX + offsetX + (isPortrait ? stagger : 0);
-  const finalY = baseY + offsetY + (isPortrait ? 0 : stagger);
-  setNodePosition(nextProcess, finalX, finalY);
-  spawnedProcessCount++;
-  /* Wait for Vue to mount the new node DOM before refreshing
-     connection coordinates – otherwise port positions are (0,0). */
-  nextTick(() => scheduleLayoutRefresh());
+  const nodeSize = getNodeSizeForLayout(node);
+  const startX = baseX + (isPortrait ? 0 : nodeSize.width + 80);
+  const startY = baseY + (isPortrait ? nodeSize.height + 80 : 0);
+  placeNodeAvoidingOverlap(graph, nextProcess, startX, startY, isPortrait ? "x" : "y", [node.id]);
+
+  /* Only refresh connection visuals – never re-run the central
+     auto-arrange, which would shift the spawned process position.
+     Use delayed retries so Vue has time to mount the DOM. */
+  nextTick(() => {
+    const delays = [0, 120, 280];
+    delays.forEach((d) => setTimeout(() => refreshConnectionCoords(), d));
+  });
 };
 
 const deleteSpawnedProcess = (node: any) => {
