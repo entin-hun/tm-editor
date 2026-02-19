@@ -2003,7 +2003,7 @@ watch(
                   :on-add-input="() => handleAddInputForNode(node)"
                   :on-add-output="() => handleAddOutputForNode(node)"
                   :on-add-mechanism="() => handleAddMechanismForNode(node)"
-                  :on-delete="isSpawnedProcess(node) ? () => handleDeleteForNode(node) : undefined"
+                  :on-delete="isSpawnedProcess(node) && !nodeHasSpawnedConnection(node) ? () => handleDeleteForNode(node) : undefined"
                 />
               </div>
             </template>
