@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import type { CSSProperties } from "vue";
 import type { AbstractNode, NodeInterface } from "@baklavajs/core";
 import { Components } from "@baklavajs/renderer-vue";
-import GenericProcessEditor from "../../components/editors/processes/GenericProcessEditor.vue";
+import type { GenericProcess } from "@trace.market/types";
 
 type Location = "left" | "right" | "top" | "bottom";
 
@@ -50,46 +50,209 @@ watch(
 const readLocation = (intf: NodeInterface<unknown>) =>
   (intf as NodeInterface<unknown> & { data?: PortMeta }).data?.location;
 
-/** Detect portrait / vertical screen orientation */
-const isVertical = ref(false);
-const updateOrientation = () => {
-  isVertical.value = typeof window !== "undefined" && window.innerHeight > window.innerWidth;
-};
-onMounted(() => {
-  updateOrientation();
-  window.addEventListener("resize", updateOrientation);
-});
-onUnmounted(() => {
-  window.removeEventListener("resize", updateOrientation);
-});
-
-/**
- * In portrait mode, remap process-node port sides:
- *   left (inputs)     → top
- *   right (outputs)   → bottom
- *   bottom (mechanisms) → right
- *   top (controls)    → right
- */
-const remapSide = (side: Location): Location => {
-  if (!isVertical.value) return side;
-  const map: Record<Location, Location> = { left: "top", right: "bottom", bottom: "right", top: "right" };
-  return map[side] ?? side;
-};
-
-const inputPorts = computed<NodeInterface<unknown>[]>(() =>
+const leftInputPorts = computed<NodeInterface<unknown>[]>(() =>
   Object.values(props.node.inputs).filter((intf) => readLocation(intf) === "left") as NodeInterface<unknown>[]
 );
-const outputPorts = computed<NodeInterface<unknown>[]>(() =>
+const topOutputPorts = computed<NodeInterface<unknown>[]>(() =>
+  Object.values(props.node.outputs).filter((intf) => readLocation(intf) === "top") as NodeInterface<unknown>[]
+);
+const topInputPorts = computed<NodeInterface<unknown>[]>(() =>
+  Object.values(props.node.inputs).filter((intf) => readLocation(intf) === "top") as NodeInterface<unknown>[]
+);
+const rightOutputPorts = computed<NodeInterface<unknown>[]>(() =>
   Object.values(props.node.outputs).filter((intf) => readLocation(intf) === "right") as NodeInterface<unknown>[]
 );
-const mechanismPorts = computed<NodeInterface<unknown>[]>(() =>
+const bottomInputPorts = computed<NodeInterface<unknown>[]>(() =>
   Object.values(props.node.inputs).filter((intf) => readLocation(intf) === "bottom") as NodeInterface<unknown>[]
 );
+const rightInputPorts = computed<NodeInterface<unknown>[]>(() =>
+  Object.values(props.node.inputs).filter((intf) => readLocation(intf) === "right") as NodeInterface<unknown>[]
+);
+const leftOutputPorts = computed<NodeInterface<unknown>[]>(() =>
+  Object.values(props.node.outputs).filter((intf) => readLocation(intf) === "left") as NodeInterface<unknown>[]
+);
+const bottomOutputPorts = computed<NodeInterface<unknown>[]>(() =>
+  Object.values(props.node.outputs).filter((intf) => readLocation(intf) === "bottom") as NodeInterface<unknown>[]
+);
+
+type ProcessWithName = GenericProcess & { name?: string | string[]; price?: { amount?: number; currency?: string; type?: string } };
+const processData = computed(() => (props.node as AbstractNode & { process?: ProcessWithName }).process);
+
+/* ── label chip selector (mirrors GenericProcessEditor q-select) ── */
+const BASE_LABEL_OPTIONS = [
+  "plant-based", "organic", "fair-trade", "cruelty-free", "non-GMO",
+  "plastic-free", "zero-waste", "renewable-energy", "recyclable",
+  "biodegradable", "compostable", "upcycled", "regenerative",
+  "durable", "washable", "repairable", "energy-efficient",
+  "water-efficient", "BPA-free", "lead-free", "phthalate-free",
+  "pesticide-free", "hormone-free", "antibiotic-free",
+  "FSC-certified", "rainforest-alliance", "eu-ecolabel",
+  "clinically-proven", "hypoallergenic", "dermatologically-tested",
+];
+const allLabelOptions = ref<string[]>([...BASE_LABEL_OPTIONS]);
+
+const processLabels = computed<string[]>({
+  get() {
+    const name = processData.value?.name;
+    if (Array.isArray(name)) return name.filter(Boolean);
+    if (typeof name === "string") {
+      return name.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  },
+  set(labels: string[]) {
+    const process = processData.value;
+    if (!process) return;
+    process.name = labels.length > 0 ? labels.join(", ") : undefined;
+    syncProcess();
+  },
+});
+
+const labelSearch = ref("");
+const showLabelDropdown = ref(false);
+const filteredLabelOptions = computed(() => {
+  const current = new Set(processLabels.value);
+  const q = labelSearch.value.toLowerCase();
+  return allLabelOptions.value.filter(
+    (opt) => !current.has(opt) && (!q || opt.toLowerCase().includes(q))
+  );
+});
+
+const addLabel = (label: string) => {
+  const trimmed = label.trim();
+  if (!trimmed) return;
+  if (!allLabelOptions.value.includes(trimmed)) {
+    allLabelOptions.value.push(trimmed);
+  }
+  const next = [...processLabels.value];
+  if (!next.includes(trimmed)) next.push(trimmed);
+  processLabels.value = next;
+  labelSearch.value = "";
+};
+
+const removeLabel = (label: string) => {
+  processLabels.value = processLabels.value.filter((l) => l !== label);
+};
+
+const addLabelFromInput = () => {
+  const trimmed = labelSearch.value.trim();
+  if (trimmed) addLabel(trimmed);
+  showLabelDropdown.value = false;
+};
+
+const closeLabelDropdown = () => {
+  globalThis.setTimeout(() => { showLabelDropdown.value = false; }, 150);
+};
+
+/* ── price ── */
+const priceDraft = ref("");
+const currencyDraft = ref("EUR");
+
+watch(
+  processData,
+  (next) => {
+    const price = (next as any)?.price;
+    priceDraft.value = price?.amount != null ? String(price.amount) : "";
+    currencyDraft.value = price?.currency || "EUR";
+  },
+  { immediate: true, deep: true }
+);
+
+const syncPrice = () => {
+  const process = processData.value;
+  if (!process) return;
+  const amount = Number(priceDraft.value);
+  (process as any).price = {
+    amount: Number.isFinite(amount) ? amount : 0,
+    currency: currencyDraft.value || "EUR",
+    type: "budget",
+  };
+  syncProcess();
+};
+
+/* ── site (inline, mirrors SiteEditor) ── */
+const siteDraft = ref("");
+
+watch(
+  processData,
+  (next) => {
+    const site = (next as any)?.site;
+    siteDraft.value = typeof site === "string" ? site : (site?.name || site?.hash || "");
+  },
+  { immediate: true, deep: true }
+);
+
+const syncSite = () => {
+  const process = processData.value;
+  if (!process) return;
+  const trimmed = siteDraft.value.trim();
+  (process as any).site = trimmed ? { name: trimmed, hash: trimmed } : undefined;
+  syncProcess();
+};
+
+const syncProcess = () => {
+  const process = processData.value;
+  if (!process) return;
+  const node = props.node as AbstractNode & { onProcessUpdate?: (next: ProcessWithName) => void };
+  node.onProcessUpdate?.(process);
+};
+
+const toDatetimeLocalValue = (timestamp?: number) => {
+  if (!timestamp || Number.isNaN(timestamp)) return "";
+  const date = new Date(timestamp);
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const fromDatetimeLocalValue = (value: string) => {
+  if (!value) return undefined;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : undefined;
+};
+
+const timestampDraft = ref("");
+watch(
+  processData,
+  (next) => {
+    timestampDraft.value = toDatetimeLocalValue(next?.timestamp as number | undefined);
+  },
+  { immediate: true, deep: true }
+);
+
+const syncTimestamp = () => {
+  const process = processData.value;
+  if (!process) return;
+  process.timestamp = fromDatetimeLocalValue(timestampDraft.value) as any;
+  syncProcess();
+};
+
+const syncTemperatureMin = (event: Event) => {
+  const process = processData.value;
+  if (!process) return;
+  process.temperatureRange = process.temperatureRange || { min: 0, max: 100 };
+  process.temperatureRange.min = Number((event.target as HTMLInputElement).value || 0);
+  syncProcess();
+};
+
+const syncTemperatureMax = (event: Event) => {
+  const process = processData.value;
+  if (!process) return;
+  process.temperatureRange = process.temperatureRange || { min: 0, max: 100 };
+  process.temperatureRange.max = Number((event.target as HTMLInputElement).value || 0);
+  syncProcess();
+};
+
+const syncDuration = (event: Event) => {
+  const process = processData.value;
+  if (!process) return;
+  process.duration = Number((event.target as HTMLInputElement).value || 0) as any;
+  syncProcess();
+};
 
 const getPortStyle = (side: Location): CSSProperties => {
   if (side === "left") {
     return {
-      position: "absolute" as const,
+      position: "absolute",
       left: "0%",
       top: "50%",
       transform: "translate(-50%, -50%)",
@@ -98,7 +261,7 @@ const getPortStyle = (side: Location): CSSProperties => {
 
   if (side === "right") {
     return {
-      position: "absolute" as const,
+      position: "absolute",
       left: "100%",
       top: "50%",
       transform: "translate(-50%, -50%)",
@@ -107,7 +270,7 @@ const getPortStyle = (side: Location): CSSProperties => {
 
   if (side === "top") {
     return {
-      position: "absolute" as const,
+      position: "absolute",
       left: "50%",
       top: "0%",
       transform: "translate(-50%, -50%)",
@@ -115,7 +278,7 @@ const getPortStyle = (side: Location): CSSProperties => {
   }
 
   return {
-    position: "absolute" as const,
+    position: "absolute",
     left: "50%",
     top: "100%",
     transform: "translate(-50%, -50%)",
@@ -137,47 +300,73 @@ const getAddButtonStyle = (side: Location): CSSProperties => {
 };
 
 const NodeInterfaceView = Components.NodeInterface;
-const processModel = computed(() => (props.node as AbstractNode & { process?: unknown }).process);
-const applyProcess = (next: unknown) => {
-  const node = props.node as AbstractNode & { process?: unknown; onProcessUpdate?: (process: unknown) => void };
-  node.process = next;
-  node.onProcessUpdate?.(next);
-};
 </script>
 
 <template>
   <div class="idef0-node">
     <NodeInterfaceView
-      v-for="intf in inputPorts"
+      v-for="intf in topInputPorts"
       :key="intf.id"
       :node="node"
       :intf="intf"
-      :style="getPortStyle(remapSide('left'))"
+      :style="getPortStyle('top')"
+    />
+
+    <NodeInterfaceView
+      v-for="intf in topOutputPorts"
+      :key="intf.id"
+      :node="node"
+      :intf="intf"
+      :style="getPortStyle('top')"
+    />
+
+    <NodeInterfaceView
+      v-for="intf in leftInputPorts"
+      :key="intf.id"
+      :node="node"
+      :intf="intf"
+      :style="getPortStyle('left')"
+    />
+
+    <NodeInterfaceView
+      v-for="intf in leftOutputPorts"
+      :key="intf.id"
+      :node="node"
+      :intf="intf"
+      :style="getPortStyle('left')"
     />
     <button
       v-if="props.onAddInput"
       class="add-port-btn"
       type="button"
       title="Add input"
-      :style="getAddButtonStyle(remapSide('left'))"
+      :style="getAddButtonStyle('left')"
       @click.stop="props.onAddInput?.()"
     >
       +
     </button>
 
     <NodeInterfaceView
-      v-for="intf in outputPorts"
+      v-for="intf in rightOutputPorts"
       :key="intf.id"
       :node="node"
       :intf="intf"
-      :style="getPortStyle(remapSide('right'))"
+      :style="getPortStyle('right')"
+    />
+
+    <NodeInterfaceView
+      v-for="intf in rightInputPorts"
+      :key="intf.id"
+      :node="node"
+      :intf="intf"
+      :style="getPortStyle('right')"
     />
     <button
       v-if="props.onAddOutput"
       class="add-port-btn"
       type="button"
       title="Add output"
-      :style="getAddButtonStyle(remapSide('right'))"
+      :style="getAddButtonStyle('right')"
       @click.stop="props.onAddOutput?.()"
     >
       +
@@ -192,40 +381,148 @@ const applyProcess = (next: unknown) => {
           @input="syncTitle"
           @blur="syncTitle"
         />
-        <button class="delete-btn" type="button" title="Delete" @click.stop="props.onDelete?.()">
+        <button v-if="props.onDelete" class="delete-btn" type="button" title="Delete" @click.stop="props.onDelete?.()">
           ×
         </button>
       </div>
       <div class="details-row">
+        <div v-if="processData" class="process-fields">
+          <label class="process-field">
+            <span class="process-field-label">labels</span>
+            <div class="label-chips-area">
+              <span
+                v-for="label in processLabels"
+                :key="label"
+                class="label-chip"
+              >
+                {{ label }}
+                <button type="button" class="chip-remove" @click.stop="removeLabel(label)">&times;</button>
+              </span>
+              <div class="label-input-wrap">
+                <input
+                  v-model="labelSearch"
+                  class="label-search-input"
+                  type="text"
+                  placeholder="add label…"
+                  @focus="showLabelDropdown = true"
+                  @blur="closeLabelDropdown"
+                  @keydown.enter.prevent="addLabelFromInput"
+                />
+                <div v-if="showLabelDropdown && filteredLabelOptions.length > 0" class="label-dropdown">
+                  <div
+                    v-for="opt in filteredLabelOptions.slice(0, 10)"
+                    :key="opt"
+                    class="label-dropdown-item"
+                    @pointerdown.prevent="addLabel(opt)"
+                  >
+                    {{ opt }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </label>
+
+          <label class="process-field">
+            <span class="process-field-label">site</span>
+            <input
+              v-model="siteDraft"
+              class="process-field-input"
+              type="text"
+              placeholder="site name / hash"
+              @blur="syncSite"
+            />
+          </label>
+
+          <label class="process-field process-field-inline">
+            <span class="process-field-label">temperature range</span>
+            <div class="temp-pair">
+              <input
+                :value="processData.temperatureRange?.min ?? ''"
+                class="process-field-input"
+                type="number"
+                @input="syncTemperatureMin"
+              />
+              <input
+                :value="processData.temperatureRange?.max ?? ''"
+                class="process-field-input"
+                type="number"
+                @input="syncTemperatureMax"
+              />
+            </div>
+          </label>
+
+          <label class="process-field">
+            <span class="process-field-label">timestamp</span>
+            <input
+              v-model="timestampDraft"
+              class="process-field-input"
+              type="datetime-local"
+              @change="syncTimestamp"
+              @blur="syncTimestamp"
+            />
+          </label>
+
+          <label class="process-field">
+            <span class="process-field-label">duration</span>
+            <input
+              :value="processData.duration ?? ''"
+              class="process-field-input"
+              type="number"
+              @input="syncDuration"
+            />
+          </label>
+
+          <label class="process-field process-field-inline">
+            <span class="process-field-label">price</span>
+            <div class="price-pair">
+              <input
+                v-model="priceDraft"
+                class="process-field-input"
+                type="number"
+                placeholder="0"
+                @blur="syncPrice"
+              />
+              <select v-model="currencyDraft" class="process-field-input" @change="syncPrice">
+                <option>EUR</option>
+                <option>USD</option>
+                <option>GBP</option>
+                <option>HUF</option>
+                <option>CHF</option>
+              </select>
+            </div>
+          </label>
+        </div>
+
         <textarea
           v-model="detailsDraft"
           class="details-input"
-          placeholder="details"
+          placeholder="details / notes"
           @blur="syncDetails"
-        />
-      </div>
-      <div class="process-editor">
-        <GenericProcessEditor
-          :model-value="processModel as any"
-          :show-input-instances="false"
-          @update:model-value="applyProcess"
         />
       </div>
     </div>
 
     <NodeInterfaceView
-      v-for="intf in mechanismPorts"
+      v-for="intf in bottomInputPorts"
       :key="intf.id"
       :node="node"
       :intf="intf"
-      :style="getPortStyle(remapSide('bottom'))"
+      :style="getPortStyle('bottom')"
+    />
+
+    <NodeInterfaceView
+      v-for="intf in bottomOutputPorts"
+      :key="intf.id"
+      :node="node"
+      :intf="intf"
+      :style="getPortStyle('bottom')"
     />
     <button
       v-if="props.onAddMechanism"
       class="add-port-btn"
       type="button"
       title="Add mechanism"
-      :style="getAddButtonStyle(remapSide('bottom'))"
+      :style="getAddButtonStyle('bottom')"
       @click.stop="props.onAddMechanism?.()"
     >
       +
@@ -414,9 +711,125 @@ const applyProcess = (next: unknown) => {
   flex: 1;
 }
 
-.process-editor {
-  margin-top: 8px;
+.process-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
+}
+
+.process-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+}
+
+.process-field-inline {
+  gap: 6px;
+}
+
+.process-field-label {
+  font-size: 11px;
+  color: #9eb1bc;
+}
+
+.temp-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.price-pair {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+/* ── label chip selector ── */
+.label-chips-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: #101418;
+  border: 1px solid #4fc3f7;
+  border-radius: 4px;
+  padding: 4px 6px;
+  min-height: 30px;
+  align-items: center;
+}
+
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #263238;
+  color: #b2ebf2;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: #b2ebf2;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 0 0 2px;
+  line-height: 1;
+}
+
+.label-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+}
+
+.label-search-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.label-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1b2027;
+  border: 1px solid #4fc3f7;
+  border-radius: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 2px;
+}
+
+.label-dropdown-item {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.label-dropdown-item:hover {
+  background: #263238;
+}
+
+.process-field-input {
+  width: 100%;
+  background: #101418;
+  border: 1px solid #4fc3f7;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
 }
 
 .details-input {

@@ -25,9 +25,18 @@
 }
 
 .flow-editor-root .baklava-connection {
-  color: var(--baklava-color-connection-default);
-  marker-mid: url(#connection-arrow);
+  stroke: hsl(152, 76%, 42%) !important;
+  stroke-width: 2.5 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
   marker-end: url(#connection-arrow);
+}
+
+.flow-editor-root .connection-arrow-overlay {
+  fill: hsl(152, 76%, 42%);
 }
 
 .flow-editor-root .baklava-toolbar {
@@ -59,10 +68,7 @@
   margin: 0 !important;
 }
 
-.flow-editor-root .baklava-editor .background {
-  display: none !important;
-}
-
+.flow-editor-root .baklava-editor .background,
 .flow-editor-root .baklava-editor .connections-container {
   pointer-events: none;
 }
@@ -73,6 +79,31 @@
 
 .flow-editor-root .baklava-editor .node-container .baklava-node {
   pointer-events: auto;
+}
+
+/* display:contents so the drag-surface wrapper doesn't introduce an extra box \u2013
+   Baklava computes port positions relative to .baklava-node via offsetLeft chain
+   and an intermediate box would break the calculation. */
+.flow-editor-root .tm-node-drag-surface {
+  display: contents;
+}
+
+/* Grab cursor on the node content areas (idef0 + resource) */
+.flow-editor-root .idef0-node,
+.flow-editor-root .resource-node {
+  cursor: grab;
+}
+
+.flow-editor-root .idef0-node:active,
+.flow-editor-root .resource-node:active {
+  cursor: grabbing;
+}
+
+.flow-editor-root .baklava-node input,
+.flow-editor-root .baklava-node select,
+.flow-editor-root .baklava-node button,
+.flow-editor-root .baklava-node textarea {
+  cursor: auto;
 }
 
 .flow-editor-root .node-subgraph-input,

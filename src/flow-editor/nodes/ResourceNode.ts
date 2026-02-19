@@ -3,9 +3,13 @@ import { Node, NodeInterface } from "@baklavajs/core";
 type Location = "left" | "right" | "top" | "bottom";
 
 type ResourceType =
+  | "knowhow"
   | "input"
   | "output"
   | "machine"
+  | "site"
+  | "hr"
+  | "impact"
   | "energy"
   | "gas"
   | "water"
@@ -37,6 +41,11 @@ export class ResourceNode extends Node<Record<string, unknown>, Record<string, u
     (this as any).twoColumn = false;
 
     switch (resourceType) {
+      case "knowhow":
+        this.title = "Know How";
+        this.fields = {};
+        this.addResourceOutput("KnowHow", "bottom");
+        break;
       case "input":
         this.title = "Input Material";
         this.fields = { origin: "", inputQuantity: 0, details: "" };
@@ -52,6 +61,21 @@ export class ResourceNode extends Node<Record<string, unknown>, Record<string, u
         this.title = "Machine";
         this.fields = { duration: "", parameters: "" };
         this.addResourceOutput("Machine Slot", "top");
+        break;
+      case "site":
+        this.title = "Site";
+        this.fields = {};
+        this.addResourceOutput("Site", "top");
+        break;
+      case "hr":
+        this.title = "Hr";
+        this.fields = {};
+        this.addResourceOutput("Hr", "top");
+        break;
+      case "impact":
+        this.title = "Impact";
+        this.fields = {};
+        this.addResourceInput("Impact");
         break;
       case "energy":
         this.title = "Energy Source";

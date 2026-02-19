@@ -1,6 +1,6 @@
 import { Node, NodeInterface } from "@baklavajs/core";
 
-type Location = "left" | "right";
+type Location = "left" | "right" | "top" | "bottom";
 
 type PortMeta = {
   location: Location;
@@ -21,12 +21,20 @@ export class ProcessNode extends Node<Record<string, unknown>, Record<string, un
     (this as any).twoColumn = false;
   }
 
-  public addInputPort(name: string): NodeInterface<unknown> {
-    return this.addPort(name, "left", false);
+  public addInputPort(name: string, location: Location = "left"): NodeInterface<unknown> {
+    return this.addPort(name, location, false);
   }
 
-  public addOutputPort(name: string): NodeInterface<unknown> {
-    return this.addPort(name, "right", true);
+  public addOutputPort(name: string, location: Location = "right"): NodeInterface<unknown> {
+    return this.addPort(name, location, true);
+  }
+
+  public addControlPort(name: string): NodeInterface<unknown> {
+    return this.addPort(name, "bottom", false);
+  }
+
+  public addImpactPort(name: string): NodeInterface<unknown> {
+    return this.addPort(name, "top", true);
   }
 
   private addPort(name: string, location: Location, isOutput: boolean): NodeInterface<unknown> {

@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import type { CSSProperties } from "vue";
 import { Components } from "@baklavajs/renderer-vue";
 import type { AbstractNode, NodeInterface } from "@baklavajs/core";
-import type { InputInstance, ProductInstance } from "@trace.market/types";
+import type { Hr, Impact, InputInstance, ProductInstance } from "@trace.market/types";
 import InputInstanceEditor from "../../components/editors/InputInstanceEditor.vue";
 import ProductInstanceEditor from "../../components/editors/ProductInstanceEditor.vue";
-import MachineInstanceEditor from "../../components/editors/MachineInstanceEditor.vue";
+import HrEditor from "../../components/editors/HrEditor.vue";
+import SiteEditor from "../../components/editors/SiteEditor.vue";
+import ImpactArrayEditor from "../../components/editors/impacts/ImpactArrayEditor.vue";
+import type { KnowHow } from "@trace.market/types";
 
 type Location = "left" | "right" | "top" | "bottom";
 type PortMeta = {
@@ -38,6 +41,10 @@ const inputInstance = computed(() => (props.node as AbstractNode & { inputInstan
 const machineInstance = computed(
   () => (props.node as AbstractNode & { machineInstance?: unknown }).machineInstance
 );
+const controlSite = computed(() => (props.node as AbstractNode & { site?: unknown }).site);
+const controlHr = computed(() => (props.node as AbstractNode & { hr?: Hr }).hr);
+const impactArray = computed(() => (props.node as AbstractNode & { impacts?: Impact[] }).impacts);
+const knowHowValue = computed(() => (props.node as AbstractNode & { knowHow?: KnowHow }).knowHow);
 type PricedProduct = ProductInstance & { price?: unknown };
 const outputInstance = computed(
   () => (props.node as AbstractNode & { outputInstance?: ProductInstance | PricedProduct }).outputInstance
@@ -55,6 +62,24 @@ const applyMachineInstance = (next: unknown) => {
   node.onMachineUpdate?.(next);
 };
 
+const applyControlSite = (next: unknown) => {
+  const node = props.node as AbstractNode & { site?: unknown; onSiteUpdate?: (site?: unknown) => void };
+  node.site = next;
+  node.onSiteUpdate?.(next);
+};
+
+const applyControlHr = (next: Hr | undefined) => {
+  const node = props.node as AbstractNode & { hr?: Hr; onHrUpdate?: (hr?: Hr) => void };
+  node.hr = next;
+  node.onHrUpdate?.(next);
+};
+
+const applyImpacts = (next: Impact[] | undefined) => {
+  const node = props.node as AbstractNode & { impacts?: Impact[]; onImpactsUpdate?: (impacts?: Impact[]) => void };
+  node.impacts = next;
+  node.onImpactsUpdate?.(next);
+};
+
 const applyOutputInstance = (next: ProductInstance | PricedProduct) => {
   const node = props.node as AbstractNode & {
     outputInstance?: ProductInstance | PricedProduct;
@@ -64,9 +89,17 @@ const applyOutputInstance = (next: ProductInstance | PricedProduct) => {
   node.onOutputUpdate?.(next);
 };
 
+const syncFieldsUpdate = () => {
+  const fields = readFields();
+  const node = props.node as AbstractNode & { onFieldsUpdate?: (fields: ResourceFields) => void };
+  node.onFieldsUpdate?.(fields);
+};
+
 const titleDraft = ref(readTitle());
 const syncTitle = () => {
   (props.node as AbstractNode & { title?: string }).title = titleDraft.value.trim();
+  const node = props.node as AbstractNode & { onTitleUpdate?: (title: string) => void };
+  node.onTitleUpdate?.(titleDraft.value.trim());
 };
 
 watch(
@@ -89,6 +122,7 @@ const saveOrigin = () => {
   fields.origin = originDraft.value.trim();
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
   editingOrigin.value = false;
+  syncFieldsUpdate();
 };
 
 const editingOutputKg = ref(false);
@@ -106,6 +140,7 @@ const saveOutputKg = () => {
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
   outputKgDraft.value = String(safeValue);
   editingOutputKg.value = false;
+  syncFieldsUpdate();
 };
 
 const editingDestination = ref(false);
@@ -119,6 +154,7 @@ const saveDestination = () => {
   fields.destination = destinationDraft.value.trim();
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
   editingDestination.value = false;
+  syncFieldsUpdate();
 };
 
 const editingInputQuantity = ref(false);
@@ -136,6 +172,7 @@ const saveInputQuantity = () => {
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
   inputQuantityDraft.value = String(safeValue);
   editingInputQuantity.value = false;
+  syncFieldsUpdate();
 };
 
 const detailsDraft = ref("");
@@ -143,6 +180,7 @@ const syncDetails = () => {
   const fields = readFields();
   fields.details = detailsDraft.value;
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
+  syncFieldsUpdate();
 };
 
 watch(
@@ -168,6 +206,7 @@ const saveQuantity = () => {
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
   quantityDraft.value = String(safeValue);
   editingQuantity.value = false;
+  syncFieldsUpdate();
 };
 
 const editingDuration = ref(false);
@@ -181,6 +220,7 @@ const saveDuration = () => {
   fields.duration = durationDraft.value.trim();
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
   editingDuration.value = false;
+  syncFieldsUpdate();
 };
 
 const parametersDraft = ref("");
@@ -188,6 +228,7 @@ const syncParameters = () => {
   const fields = readFields();
   fields.parameters = parametersDraft.value;
   (props.node as AbstractNode & { fields?: ResourceFields }).fields = fields;
+  syncFieldsUpdate();
 };
 
 watch(
@@ -200,32 +241,6 @@ watch(
 
 const readLocation = (intf: NodeInterface<unknown>) =>
   (intf as NodeInterface<unknown> & { data?: PortMeta }).data?.location;
-
-/** Detect portrait / vertical screen orientation */
-const isVertical = ref(false);
-const updateOrientation = () => {
-  isVertical.value = typeof window !== "undefined" && window.innerHeight > window.innerWidth;
-};
-onMounted(() => {
-  updateOrientation();
-  window.addEventListener("resize", updateOrientation);
-});
-onUnmounted(() => {
-  window.removeEventListener("resize", updateOrientation);
-});
-
-/**
- * In portrait mode, remap resource-node port sides:
- *   right (input outputs)     → bottom  (face process top from above)
- *   left  (output inputs)     → top     (face process bottom from below)
- *   top   (mechanism outputs) → left    (face process right from the right side)
- *   bottom                    → bottom  (no change)
- */
-const remapSide = (side: Location): Location => {
-  if (!isVertical.value) return side;
-  const map: Record<Location, Location> = { right: "bottom", left: "top", top: "left", bottom: "bottom" };
-  return map[side] ?? side;
-};
 
 const allPorts = computed<NodeInterface<unknown>[]>(
   () => [...Object.values(props.node.inputs), ...Object.values(props.node.outputs)] as NodeInterface<unknown>[]
@@ -247,19 +262,29 @@ const resourceType = computed(() => readResourceType());
 const isInput = computed(() => resourceType.value === "input");
 const isOutput = computed(() => resourceType.value === "output");
 const isMachine = computed(() => resourceType.value === "machine");
+const isSite = computed(() => resourceType.value === "site");
+const isHr = computed(() => resourceType.value === "hr");
+const isImpact = computed(() => resourceType.value === "impact");
+const isKnowHow = computed(() => resourceType.value === "knowhow");
 const isQuantityNode = computed(() => ["energy", "gas", "water"].includes(resourceType.value));
-const isTimedNode = computed(() => ["machine", "service", "property"].includes(resourceType.value));
+const isTimedNode = computed(() => ["service", "property"].includes(resourceType.value));
 
 const outputPointerStart = ref<{ x: number; y: number } | null>(null);
 const handleOutputPointerDown = (event: PointerEvent, intf: NodeInterface<unknown>) => {
   if (!isOutput.value) return;
   if (readLocation(intf) !== "right") return;
+  /* Stop propagation so the node drag handler (handleNodePointerDown)
+     never fires – otherwise clicking + starts a drag that never ends. */
+  event.stopPropagation();
+  event.preventDefault();
   outputPointerStart.value = { x: event.clientX, y: event.clientY };
 };
 
 const handleOutputPointerUp = (event: PointerEvent, intf: NodeInterface<unknown>) => {
   if (!isOutput.value) return;
   if (readLocation(intf) !== "right") return;
+  event.stopPropagation();
+  event.preventDefault();
   const start = outputPointerStart.value;
   outputPointerStart.value = null;
   if (!start) return;
@@ -309,7 +334,100 @@ const getPortStyle = (side: Location, index: number, count: number): CSSProperti
   };
 };
 
+/** Position for the + badge next to a right-side port */
+const getBadgeStyle = (index: number, count: number): CSSProperties => {
+  const safeCount = clampCount(count);
+  const fraction = (index + 1) / (safeCount + 1);
+  return {
+    position: "absolute",
+    left: "calc(100% + 10px)",
+    top: `${fraction * 100}%`,
+    transform: "translate(0, -50%)",
+  };
+};
+
 const NodeInterfaceView = Components.NodeInterface;
+
+const controlTypeDraft = ref<"site" | "hr" | "machine">("hr");
+const canSwitchControlType = computed(() => {
+  const node = props.node as AbstractNode & { onControlKindUpdate?: (next: "site" | "hr" | "machine") => void };
+  return typeof node.onControlKindUpdate === "function";
+});
+
+watch(
+  () => readResourceType(),
+  (next) => {
+    if (next === "site" || next === "machine") {
+      controlTypeDraft.value = next;
+      return;
+    }
+    controlTypeDraft.value = "hr";
+  },
+  { immediate: true }
+);
+
+const applyControlType = () => {
+  const nextType = controlTypeDraft.value;
+  const node = props.node as AbstractNode & {
+    resourceType?: string;
+    onControlKindUpdate?: (next: "site" | "hr" | "machine") => void;
+  };
+  node.resourceType = nextType;
+  node.onControlKindUpdate?.(nextType);
+};
+
+const applyKnowHow = (next: KnowHow | undefined) => {
+  const node = props.node as AbstractNode & { knowHow?: KnowHow; onKnowHowUpdate?: (knowHow?: KnowHow) => void };
+  node.knowHow = next;
+  node.onKnowHowUpdate?.(next);
+};
+
+const machineHashDraft = ref("");
+const syncMachineHashFromNode = () => {
+  const machine = (props.node as AbstractNode & { machineInstance?: unknown }).machineInstance;
+  if (machine && typeof machine === "object" && "hash" in (machine as Record<string, unknown>)) {
+    const raw = (machine as Record<string, unknown>).hash;
+    machineHashDraft.value = typeof raw === "string" ? raw : "";
+    return;
+  }
+  machineHashDraft.value = "";
+};
+
+watch(machineInstance, syncMachineHashFromNode, { immediate: true, deep: true });
+
+const syncMachineHash = () => {
+  const node = props.node as AbstractNode & {
+    machineInstance?: unknown;
+    onMachineUpdate?: (machine: unknown) => void;
+  };
+  const current = node.machineInstance;
+  const next = {
+    ...(current && typeof current === "object" ? current as Record<string, unknown> : {}),
+    hash: machineHashDraft.value.trim(),
+  };
+  node.machineInstance = next;
+  node.onMachineUpdate?.(next);
+};
+
+const knowHowHashDraft = ref("");
+const syncKnowHowHashFromNode = () => {
+  const hash = knowHowValue.value?.hash;
+  knowHowHashDraft.value = typeof hash === "string" ? hash : "";
+};
+
+watch(knowHowValue, syncKnowHowHashFromNode, { immediate: true, deep: true });
+
+const syncKnowHowHash = () => {
+  const current = knowHowValue.value;
+  const next: KnowHow = {
+    owner: current?.owner ?? "",
+    hash: knowHowHashDraft.value.trim(),
+    inputs: current?.inputs ?? "",
+    outputs: current?.outputs ?? "",
+    licenseFee: current?.licenseFee ?? { amount: 0, currency: "", type: "budget" },
+  };
+  applyKnowHow(next);
+};
 </script>
 
 <template>
@@ -319,28 +437,31 @@ const NodeInterfaceView = Components.NodeInterface;
       :key="intf.id"
       :node="node"
       :intf="intf"
-      :style="getPortStyle(remapSide('left'), index, leftPorts.length)"
+      :style="getPortStyle('left', index, leftPorts.length)"
     />
 
-    <div
-      v-for="(intf, index) in rightPorts"
-      :key="intf.id"
-      :style="getPortStyle(remapSide('right'), index, rightPorts.length)"
-      @pointerdown.capture="handleOutputPointerDown($event, intf)"
-      @pointerup.capture="handleOutputPointerUp($event, intf)"
-    >
+    <template v-for="(intf, index) in rightPorts" :key="intf.id">
       <NodeInterfaceView
         :node="node"
         :intf="intf"
+        :style="getPortStyle('right', index, rightPorts.length)"
       />
-    </div>
+      <!-- + badge positioned next to the port; uses same port-style origin -->
+      <span
+        v-if="isOutput"
+        class="output-add-badge"
+        :style="getBadgeStyle(index, rightPorts.length)"
+        @pointerdown.capture.stop.prevent="handleOutputPointerDown($event, intf)"
+        @pointerup.capture.stop.prevent="handleOutputPointerUp($event, intf)"
+      >+</span>
+    </template>
 
     <NodeInterfaceView
       v-for="(intf, index) in topPorts"
       :key="intf.id"
       :node="node"
       :intf="intf"
-      :style="getPortStyle(remapSide('top'), index, topPorts.length)"
+      :style="getPortStyle('top', index, topPorts.length)"
     />
 
     <NodeInterfaceView
@@ -348,10 +469,20 @@ const NodeInterfaceView = Components.NodeInterface;
       :key="intf.id"
       :node="node"
       :intf="intf"
-      :style="getPortStyle(remapSide('bottom'), index, bottomPorts.length)"
+      :style="getPortStyle('bottom', index, bottomPorts.length)"
     />
 
     <div class="resource-title">
+      <select
+        v-if="canSwitchControlType"
+        v-model="controlTypeDraft"
+        class="control-type-select"
+        @change="applyControlType"
+      >
+        <option value="hr">Hr</option>
+        <option value="site">Site</option>
+        <option value="machine">Machine</option>
+      </select>
       <input
         v-model="titleDraft"
         class="title-input"
@@ -359,7 +490,7 @@ const NodeInterfaceView = Components.NodeInterface;
         @input="syncTitle"
         @blur="syncTitle"
       />
-      <button class="delete-btn" type="button" title="Delete" @click.stop="props.onDelete?.()">
+      <button v-if="props.onDelete" class="delete-btn" type="button" title="Delete" @click.stop="props.onDelete?.()">
         ×
       </button>
     </div>
@@ -466,14 +597,59 @@ const NodeInterfaceView = Components.NodeInterface;
     </div>
 
     <div v-else-if="isMachine" class="resource-fields">
+      <div class="field-row">
+        <span class="field-label">hash</span>
+        <input
+          v-model="machineHashDraft"
+          class="field-input"
+          type="text"
+          placeholder="machine hash"
+          @blur="syncMachineHash"
+          @keyup.enter="syncMachineHash"
+        />
+      </div>
+    </div>
+
+    <div v-else-if="isSite" class="resource-fields">
       <div class="resource-form">
-        <MachineInstanceEditor
-          :model-value="machineInstance as any"
-          label="machine"
-          :show-reference-hash="false"
-          :show-fields="true"
-          :show-hr="true"
-          @update:model-value="applyMachineInstance"
+        <SiteEditor
+          :model-value="controlSite"
+          label="site"
+          @update:model-value="applyControlSite"
+        />
+      </div>
+    </div>
+
+    <div v-else-if="isHr" class="resource-fields">
+      <div class="resource-form">
+        <HrEditor
+          :model-value="controlHr"
+          label="hr"
+          @update:model-value="applyControlHr"
+        />
+      </div>
+    </div>
+
+    <div v-else-if="isImpact" class="resource-fields">
+      <div class="resource-form">
+        <ImpactArrayEditor
+          :model-value="impactArray"
+          label="impacts"
+          @update:model-value="applyImpacts"
+        />
+      </div>
+    </div>
+
+    <div v-else-if="isKnowHow" class="resource-fields">
+      <div class="field-row">
+        <span class="field-label">hash</span>
+        <input
+          v-model="knowHowHashDraft"
+          class="field-input"
+          type="text"
+          placeholder="knowhow hash"
+          @blur="syncKnowHowHash"
+          @keyup.enter="syncKnowHowHash"
         />
       </div>
     </div>
@@ -560,6 +736,22 @@ const NodeInterfaceView = Components.NodeInterface;
   display: none;
 }
 
+.output-add-badge {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #ffb74d;
+  color: #101418;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 2;
+}
+
 .resource-title {
   display: flex;
   align-items: center;
@@ -576,6 +768,15 @@ const NodeInterfaceView = Components.NodeInterface;
   font-weight: 700;
   padding: 4px 6px;
   text-align: center;
+}
+
+.control-type-select {
+  border: 1px solid rgba(255, 183, 77, 0.8);
+  background: #101418;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 4px 6px;
 }
 
 .delete-btn {

@@ -2,12 +2,19 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { DependencyEngine } from "@baklavajs/engine";
 import { BaklavaEditor, Components, setNodePosition, useBaklava } from "@baklavajs/renderer-vue";
-import type { InputInstance, MachineInstance, Pokedex, ProductInstance } from "@trace.market/types";
+import type { NodeInterface } from "@baklavajs/core";
+import type { Hr, Impact, InputInstance, KnowHow, MachineInstance, Pokedex, ProductInstance } from "@trace.market/types";
 import Idef0Node from "./components/Idef0Node.vue";
 import ResourceNodeVue from "./components/ResourceNode.vue";
 import { ProcessNode } from "./nodes/ProcessNode";
 import { ResourceNode } from "./nodes/ResourceNode";
-import { clone, defaultLocalInputInstance, defaultMachineInstance } from "../components/editors/defaults";
+import {
+  clone,
+  defaultHr,
+  defaultMachineInstance,
+  defaultLocalInputInstance,
+  defaultSite,
+} from "../components/editors/defaults";
 import "./style.css";
 import "@baklavajs/plugin-renderer-vue/dist/styles.css";
 import "@baklavajs/themes/dist/syrup-dark.css";
@@ -73,31 +80,119 @@ engine.start();
 
 
 const installConnectionMarkers = () => {
-  const svg = document.querySelector(".connections-container svg") as SVGSVGElement | null;
+  const svg = document.querySelector(".connections-container") as SVGSVGElement | null;
   if (!svg) return false;
 
   const existing = svg.querySelector("#connection-arrow") as SVGMarkerElement | null;
-  if (existing) return true;
+  const existingStart = svg.querySelector("#connection-arrow-start") as SVGMarkerElement | null;
+  if (existing && existingStart) return true;
 
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-  const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-  marker.setAttribute("id", "connection-arrow");
-  marker.setAttribute("viewBox", "0 0 10 10");
-  marker.setAttribute("refX", "8");
-  marker.setAttribute("refY", "5");
-  marker.setAttribute("markerWidth", "8");
-  marker.setAttribute("markerHeight", "8");
-  marker.setAttribute("markerUnits", "strokeWidth");
-  marker.setAttribute("orient", "auto");
+  let defs = svg.querySelector("defs");
+  if (!defs) {
+    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    svg.prepend(defs);
+  }
+  const makeMarker = (id: string, orient: string) => {
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    marker.setAttribute("id", id);
+    marker.setAttribute("viewBox", "0 0 10 10");
+    marker.setAttribute("refX", "5");
+    marker.setAttribute("refY", "5");
+    marker.setAttribute("markerWidth", "6");
+    marker.setAttribute("markerHeight", "6");
+    marker.setAttribute("markerUnits", "userSpaceOnUse");
+    marker.setAttribute("orient", orient);
 
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-  path.setAttribute("fill", "currentColor");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+    path.setAttribute("fill", "hsl(152, 76%, 42%)");
+    marker.appendChild(path);
+    return marker;
+  };
 
-  marker.appendChild(path);
-  defs.appendChild(marker);
-  svg.prepend(defs);
+  if (!existing) {
+    defs.appendChild(makeMarker("connection-arrow", "auto"));
+  }
+  if (!existingStart) {
+    defs.appendChild(makeMarker("connection-arrow-start", "auto-start-reverse"));
+  }
   return true;
+};
+
+const bezierMidpoint = (
+  x1: number,
+  y1: number,
+  cx1: number,
+  cy1: number,
+  cx2: number,
+  cy2: number,
+  x2: number,
+  y2: number
+) => {
+  const t = 0.5;
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const mt3 = mt2 * mt;
+
+  const mx = mt3 * x1 + 3 * mt2 * t * cx1 + 3 * mt * t2 * cx2 + t3 * x2;
+  const my = mt3 * y1 + 3 * mt2 * t * cy1 + 3 * mt * t2 * cy2 + t3 * y2;
+
+  const dx = 3 * mt2 * (cx1 - x1) + 6 * mt * t * (cx2 - cx1) + 3 * t2 * (x2 - cx2);
+  const dy = 3 * mt2 * (cy1 - y1) + 6 * mt * t * (cy2 - cy1) + 3 * t2 * (y2 - cy2);
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+  return { mx, my, angle };
+};
+
+const parseBezierPath = (d: string) => {
+  const nums = d.match(/-?[\d.]+/g);
+  if (!nums) return null;
+  if (nums.length >= 8) {
+    return nums.slice(0, 8).map(Number) as [number, number, number, number, number, number, number, number];
+  }
+  if (nums.length >= 4) {
+    const [x1, y1, x2, y2] = nums.map(Number);
+    return [x1, y1, x1, y1, x2, y2, x2, y2] as [number, number, number, number, number, number, number, number];
+  }
+  return null;
+};
+
+const updateConnectionArrows = () => {
+  const svg = document.querySelector(".connections-container") as SVGSVGElement | null;
+  if (!svg) return;
+
+  svg.querySelectorAll(".connection-arrow-overlay").forEach((el) => el.remove());
+  const nodeRects = Array.from(document.querySelectorAll(".flow-editor-root .baklava-node")).map((nodeEl) =>
+    (nodeEl as HTMLElement).getBoundingClientRect()
+  );
+  const isPointInsideNode = (x: number, y: number) =>
+    nodeRects.some((rect) => x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom);
+
+  const paths = svg.querySelectorAll<SVGPathElement>(".baklava-connection");
+  paths.forEach((pathEl) => {
+    pathEl.removeAttribute("marker-start");
+    const d = pathEl.getAttribute("d");
+    if (!d) return;
+    const coords = parseBezierPath(d);
+    if (!coords) return;
+
+    const [x1, y1, cx1, cy1, cx2, cy2, x2, y2] = coords;
+    const { mx, my, angle } = bezierMidpoint(x1, y1, cx1, cy1, cx2, cy2, x2, y2);
+
+    const arrow = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    arrow.setAttribute("class", "connection-arrow-overlay");
+    arrow.setAttribute("points", "-10,-8 10,0 -10,8");
+    arrow.setAttribute("fill", "hsl(152, 76%, 42%)");
+    arrow.setAttribute("transform", `translate(${mx},${my}) rotate(${angle})`);
+    arrow.style.pointerEvents = "none";
+    svg.appendChild(arrow);
+
+    if (isPointInsideNode(mx, my)) {
+      pathEl.setAttribute("marker-start", "url(#connection-arrow-start)");
+    }
+  });
 };
 
 const refreshConnectionCoords = () => {
@@ -113,8 +208,34 @@ const refreshConnectionCoords = () => {
       graph.nodes.forEach((node: any) => {
         setNodePosition(node as any, node.position.x - epsilon, node.position.y - epsilon);
       });
+      requestAnimationFrame(() => updateConnectionArrows());
     });
   });
+};
+
+type ResourceFields = {
+  origin?: string;
+  inputQuantity?: number;
+  details?: string;
+  outputKg?: number;
+  destination?: string;
+  quantity?: number;
+  duration?: string;
+  parameters?: string;
+};
+
+type OutputMeta = {
+  title?: string;
+  fields?: ResourceFields;
+  outputInstance?: ProductInstance | PricedProduct;
+};
+
+type ControlMeta = {
+  kind: "site" | "hr" | "machine";
+  title?: string;
+  site?: unknown;
+  hr?: Hr;
+  machine?: MachineInstance;
 };
 
 type ProcessShape = {
@@ -123,7 +244,24 @@ type ProcessShape = {
   name?: string;
   inputInstances: InputInstance[];
   machineInstance?: MachineInstance;
+  impacts?: Impact[];
+  knowHow?: KnowHow;
+  site?: unknown;
+  hr?: Hr;
+  outputNodes?: OutputMeta[];
+  controlNodes?: ControlMeta[];
 };
+
+type NodeMeta =
+  | { kind: "input"; index: number }
+  | { kind: "output-root" }
+  | { kind: "output-extra"; index: number }
+  | { kind: "machine" }
+  | { kind: "site-main" }
+  | { kind: "hr-main" }
+  | { kind: "control-extra"; index: number }
+  | { kind: "knowhow" }
+  | { kind: "impact" };
 
 const ensureProcessWithInputs = (): ProcessShape | null => {
   const inst = value.value.instance as unknown as { process?: ProcessShape } | undefined;
@@ -139,7 +277,16 @@ const ensureProcessWithInputs = (): ProcessShape | null => {
   if (!Array.isArray((inst.process as any).inputInstances)) {
     (inst.process as any).inputInstances = [];
   }
+  if (!Array.isArray((inst.process as any).outputNodes)) {
+    (inst.process as any).outputNodes = [];
+  }
+  if (!Array.isArray((inst.process as any).controlNodes)) {
+    (inst.process as any).controlNodes = [];
+  }
   inst.process.type = inst.process.type || "process";
+  (inst.process as any).controlNodes = (inst.process as any).controlNodes.filter(
+    (item: ControlMeta) => item && (item.kind === "site" || item.kind === "hr" || item.kind === "machine")
+  );
   (inst.process as any).category = (inst.process as any).category || "process";
   (inst.process as any).name = (inst.process as any).name || inst.process.type;
   return inst.process as ProcessShape;
@@ -157,21 +304,112 @@ const outputLabel = (output: ProductInstance | PricedProduct | undefined) => {
   return output.title || output.type || "Output";
 };
 
+const nodePositionCache = new Map<string, { x: number; y: number }>();
+
+/** Track spawned (connector-added) process nodes for deletion and anti-stacking */
+const spawnedProcessNodes = new Set<string>();
+let spawnedProcessCount = 0;
+
+const isInteractiveTarget = (target: EventTarget | null) => {
+  if (!target || !(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest("input, textarea, select, button, option, [contenteditable='true'], .baklava-node-interface")
+  );
+};
+
+const handleNodePointerDown = (
+  event: PointerEvent,
+  node: any,
+  onStartDrag?: (event: PointerEvent) => void,
+  onSelect?: (event?: any) => void,
+) => {
+  if (!onStartDrag) return;
+  if (isInteractiveTarget(event.target)) return;
+  /* Ensure the node is in selectedNodes before starting drag –
+     Baklava's startDrag iterates selectedNodes array. */
+  const selectedNodes = baklava.displayedGraph.selectedNodes as any[];
+  if (!selectedNodes.includes(node)) {
+    selectedNodes.length = 0;
+    selectedNodes.push(node);
+  }
+  /* Stop propagation so the editor's panZoom handler doesn't start
+     a competing drag/pan, which causes the "node follows cursor
+     forever" bug. */
+  event.stopPropagation();
+  onStartDrag(event);
+};
+
+const nodeKeyFromMeta = (meta?: NodeMeta) => {
+  if (!meta) return null;
+  if (meta.kind === "input") return `input:${meta.index}`;
+  if (meta.kind === "output-root") return "output-root";
+  if (meta.kind === "output-extra") return `output-extra:${meta.index}`;
+  if (meta.kind === "machine") return "machine";
+  if (meta.kind === "site-main") return "site-main";
+  if (meta.kind === "hr-main") return "hr-main";
+  if (meta.kind === "control-extra") return `control-extra:${meta.index}`;
+  if (meta.kind === "knowhow") return "knowhow";
+  if (meta.kind === "impact") return "impact";
+  return null;
+};
+
+const snapshotNodePositions = () => {
+  const graph = baklava.displayedGraph;
+  graph.nodes.forEach((node: any) => {
+    const key = node.__tmKey as string | undefined;
+    if (!key) return;
+    nodePositionCache.set(key, { x: node.position.x, y: node.position.y });
+  });
+};
+
+const applyCachedPosition = (node: any, key: string) => {
+  node.__tmKey = key;
+  const cached = nodePositionCache.get(key);
+  if (!cached) return false;
+  node.position.x = cached.x;
+  node.position.y = cached.y;
+  setNodePosition(node, cached.x, cached.y);
+  return true;
+};
+
+const isPortraitLayout = () => {
+  const bounds = rootEl.value?.getBoundingClientRect();
+  const width = bounds?.width ?? window.innerWidth;
+  const height = bounds?.height ?? window.innerHeight;
+  return height > width;
+};
+
 const clearGraph = () => {
   const graph = baklava.displayedGraph as any;
   if (!graph?.removeNode) return;
+  snapshotNodePositions();
   [...graph.nodes].forEach((node) => graph.removeNode(node));
+};
+
+const scheduleLayoutRefresh = () => {
+  const delays = [0, 120, 280, 520];
+  delays.forEach((delay) => {
+    setTimeout(() => {
+      autoArrangeNodes();
+      refreshConnectionCoords();
+    }, delay);
+  });
 };
 
 const buildGraphFromModel = () => {
   const graph = baklava.displayedGraph;
   const process = ensureProcessWithInputs();
   if (!graph || !process) return;
+  const isPortrait = isPortraitLayout();
 
   clearGraph();
 
   const processNode = graph.addNode(new ProcessNode());
   if (!processNode) return;
+  let hasNewUnpositionedNode = false;
+  if (!applyCachedPosition(processNode as any, "process")) {
+    hasNewUnpositionedNode = true;
+  }
   processNode.title = process.type || "Process";
   (processNode as any).process = process;
   (processNode as any).onProcessUpdate = (next: ProcessShape) => {
@@ -183,51 +421,281 @@ const buildGraphFromModel = () => {
   const outputInstance = value.value.instance as ProductInstance | PricedProduct | undefined;
   const outputNode = graph.addNode(new ResourceNode("output"));
   if (outputNode) {
+        if (!applyCachedPosition(outputNode as any, "output-root")) {
+          hasNewUnpositionedNode = true;
+        }
+    (outputNode as any).__tmMeta = { kind: "output-root" } as NodeMeta;
     (outputNode as any).outputInstance = outputInstance;
     (outputNode as any).onOutputUpdate = (next: ProductInstance | PricedProduct) => {
       value.value.instance = next as any;
     };
     outputNode.title = outputLabel(outputInstance);
 
-    const outputPort = processNode.addOutputPort("Output");
+    const outputPort = processNode.addOutputPort("Output 1", "right");
     const outputInput = Object.values(outputNode.inputs)[0];
     if (outputPort && outputInput) graph.addConnection(outputPort, outputInput);
   }
 
-  const machineInstance = process.machineInstance ?? clone(defaultMachineInstance);
-  process.machineInstance = machineInstance;
-  const machineNode = graph.addNode(new ResourceNode("machine"));
-  if (machineNode) {
-    (machineNode as any).machineInstance = machineInstance;
-    (machineNode as any).onMachineUpdate = (next: MachineInstance) => {
-      const target = ensureProcessWithInputs();
-      if (!target) return;
-      target.machineInstance = next;
+  process.outputNodes = process.outputNodes || [];
+  process.outputNodes.forEach((meta, index) => {
+    const extraNode = graph.addNode(new ResourceNode("output"));
+    if (!extraNode) return;
+    (extraNode as any).__tmMeta = { kind: "output-extra", index } as NodeMeta;
+    if (!applyCachedPosition(extraNode as any, `output-extra:${index}`)) {
+      hasNewUnpositionedNode = true;
+    }
+    (extraNode as any).outputInstance = meta.outputInstance;
+    (extraNode as any).onOutputUpdate = (next: ProductInstance | PricedProduct) => {
+      meta.outputInstance = next;
     };
-    machineNode.title = "Machine";
+    (extraNode as any).fields = meta.fields || {};
+    (extraNode as any).onFieldsUpdate = (fields: ResourceFields) => {
+      meta.fields = { ...fields };
+    };
+    (extraNode as any).onTitleUpdate = (title: string) => {
+      meta.title = title;
+    };
+    extraNode.title = meta.title || `Output ${index + 2}`;
 
-    const machinePort = processNode.addInputPort("Machine");
-    const machineOutput = Object.values(machineNode.outputs)[0];
-    if (machinePort && machineOutput) graph.addConnection(machineOutput, machinePort);
+    const extraPort = processNode.addOutputPort(`Output ${index + 2}`, "right");
+    const extraInput = Object.values(extraNode.inputs)[0];
+    if (extraPort && extraInput) graph.addConnection(extraPort, extraInput);
+  });
+
+  if (process.machineInstance) {
+    const machineNode = graph.addNode(new ResourceNode("machine"));
+    if (machineNode) {
+      (machineNode as any).__tmMeta = { kind: "machine" } as NodeMeta;
+      if (!applyCachedPosition(machineNode as any, "machine")) {
+        hasNewUnpositionedNode = true;
+      }
+      (machineNode as any).machineInstance = process.machineInstance;
+      (machineNode as any).controlKind = "machine";
+      (machineNode as any).onMachineUpdate = (next: MachineInstance) => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        target.machineInstance = next;
+      };
+      (machineNode as any).onControlKindUpdate = (next: "site" | "hr" | "machine") => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        if (next === "site") {
+          target.site = target.site || clone(defaultSite);
+          target.machineInstance = undefined;
+        }
+        if (next === "hr") {
+          target.hr = target.hr || clone(defaultHr);
+          target.machineInstance = undefined;
+        }
+        if (next === "machine") {
+          target.machineInstance = target.machineInstance || clone(defaultMachineInstance);
+        }
+        buildGraphFromModel();
+      };
+      machineNode.title = "Machine";
+
+      const machinePort = processNode.addInputPort("Machine", isPortrait ? "right" : "bottom");
+      const machineOutput = Object.values(machineNode.outputs)[0];
+      if (machinePort && machineOutput) graph.addConnection(machineOutput, machinePort);
+    }
   }
 
   process.inputInstances.forEach((input, index) => {
     const inputNode = graph.addNode(new ResourceNode("input"));
     if (!inputNode) return;
+    (inputNode as any).__tmMeta = { kind: "input", index } as NodeMeta;
+    if (!applyCachedPosition(inputNode as any, `input:${index}`)) {
+      hasNewUnpositionedNode = true;
+    }
     (inputNode as any).inputInstance = input;
     (inputNode as any).onInputUpdate = (next: InputInstance) => {
       process.inputInstances.splice(index, 1, next);
     };
     inputNode.title = inputLabel(input, index);
 
-    const inputPort = processNode.addInputPort(`Input ${index + 1}`);
+    const inputPort = processNode.addInputPort(`Input ${index + 1}`, isPortrait ? "top" : "left");
     const inputOutput = Object.values(inputNode.outputs)[0];
     if (inputOutput && inputPort) graph.addConnection(inputOutput, inputPort);
   });
 
+  if (process.impacts !== undefined) {
+    const impactNode = graph.addNode(new ResourceNode("impact"));
+    if (impactNode) {
+      (impactNode as any).__tmMeta = { kind: "impact" } as NodeMeta;
+      if (!applyCachedPosition(impactNode as any, "impact")) {
+        hasNewUnpositionedNode = true;
+      }
+      (impactNode as any).impacts = process.impacts || [];
+      (impactNode as any).onImpactsUpdate = (next: Impact[] | undefined) => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        target.impacts = next;
+      };
+      impactNode.title = "Impacts";
+      const impactPort = isPortrait
+        ? processNode.addOutputPort("Impacts", "left")
+        : processNode.addImpactPort("Impacts");
+      const impactInput = Object.values(impactNode.inputs)[0];
+      if (impactPort && impactInput) graph.addConnection(impactPort, impactInput);
+    }
+  }
+
+  if (process.knowHow !== undefined) {
+    const knowHowNode = graph.addNode(new ResourceNode("knowhow"));
+    if (knowHowNode) {
+      (knowHowNode as any).__tmMeta = { kind: "knowhow" } as NodeMeta;
+      if (!applyCachedPosition(knowHowNode as any, "knowhow")) {
+        hasNewUnpositionedNode = true;
+      }
+      (knowHowNode as any).knowHow = process.knowHow;
+      (knowHowNode as any).onKnowHowUpdate = (next?: KnowHow) => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        target.knowHow = next;
+      };
+      knowHowNode.title = "KnowHow";
+      const knowHowPort = processNode.addInputPort("KnowHow", "top");
+      const knowHowOutput = Object.values(knowHowNode.outputs)[0];
+      if (knowHowPort && knowHowOutput) graph.addConnection(knowHowOutput, knowHowPort);
+    }
+  }
+
+  if (process.site !== undefined) {
+    const siteNode = graph.addNode(new ResourceNode("site"));
+    if (siteNode) {
+      (siteNode as any).__tmMeta = { kind: "site-main" } as NodeMeta;
+      if (!applyCachedPosition(siteNode as any, "site-main")) {
+        hasNewUnpositionedNode = true;
+      }
+      (siteNode as any).site = process.site;
+      (siteNode as any).onSiteUpdate = (next?: unknown) => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        target.site = next;
+      };
+      (siteNode as any).controlKind = "site";
+      (siteNode as any).onControlKindUpdate = (next: "site" | "hr" | "machine") => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        if (next === "site") {
+          target.site = target.site || clone(defaultSite);
+        }
+        if (next === "hr") {
+          target.hr = target.hr || clone(defaultHr);
+          target.site = undefined;
+        }
+        if (next === "machine") {
+          target.machineInstance = target.machineInstance || clone(defaultMachineInstance);
+          target.site = undefined;
+        }
+        buildGraphFromModel();
+      };
+      siteNode.title = "Site";
+      const sitePort = processNode.addInputPort("Site", isPortrait ? "right" : "bottom");
+      const siteOutput = Object.values(siteNode.outputs)[0];
+      if (sitePort && siteOutput) graph.addConnection(siteOutput, sitePort);
+    }
+  }
+
+  if (process.hr !== undefined) {
+    const hrNode = graph.addNode(new ResourceNode("hr"));
+    if (hrNode) {
+      (hrNode as any).__tmMeta = { kind: "hr-main" } as NodeMeta;
+      if (!applyCachedPosition(hrNode as any, "hr-main")) {
+        hasNewUnpositionedNode = true;
+      }
+      (hrNode as any).hr = process.hr;
+      (hrNode as any).onHrUpdate = (next?: Hr) => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        target.hr = next;
+      };
+      (hrNode as any).controlKind = "hr";
+      (hrNode as any).onControlKindUpdate = (next: "site" | "hr" | "machine") => {
+        const target = ensureProcessWithInputs();
+        if (!target) return;
+        if (next === "site") {
+          target.site = target.site || clone(defaultSite);
+          target.hr = undefined;
+        }
+        if (next === "hr") {
+          target.hr = target.hr || clone(defaultHr);
+        }
+        if (next === "machine") {
+          target.machineInstance = target.machineInstance || clone(defaultMachineInstance);
+          target.hr = undefined;
+        }
+        buildGraphFromModel();
+      };
+      hrNode.title = "Hr";
+      const hrPort = processNode.addInputPort("Hr", isPortrait ? "right" : "bottom");
+      const hrOutput = Object.values(hrNode.outputs)[0];
+      if (hrPort && hrOutput) graph.addConnection(hrOutput, hrPort);
+    }
+  }
+
+  process.controlNodes = process.controlNodes || [];
+  process.controlNodes.forEach((meta, index) => {
+    const extraControl = graph.addNode(new ResourceNode(meta.kind));
+    if (!extraControl) return;
+    (extraControl as any).__tmMeta = { kind: "control-extra", index } as NodeMeta;
+    if (!applyCachedPosition(extraControl as any, `control-extra:${index}`)) {
+      hasNewUnpositionedNode = true;
+    }
+    if (meta.kind === "site") {
+      (extraControl as any).site = meta.site;
+      (extraControl as any).controlKind = "site";
+      (extraControl as any).onSiteUpdate = (next?: unknown) => {
+        meta.site = next;
+      };
+    }
+    if (meta.kind === "hr") {
+      (extraControl as any).hr = meta.hr;
+      (extraControl as any).controlKind = "hr";
+      (extraControl as any).onHrUpdate = (next?: Hr) => {
+        meta.hr = next;
+      };
+    }
+    if (meta.kind === "machine") {
+      (extraControl as any).machineInstance = meta.machine || clone(defaultMachineInstance);
+      (extraControl as any).controlKind = "machine";
+      (extraControl as any).onMachineUpdate = (next: MachineInstance) => {
+        meta.machine = next;
+      };
+    }
+    (extraControl as any).onControlKindUpdate = (next: "site" | "hr" | "machine") => {
+      meta.kind = next;
+      if (next === "site") {
+        meta.site = meta.site || clone(defaultSite);
+        meta.hr = undefined;
+        meta.machine = undefined;
+      } else {
+        if (next === "hr") {
+          meta.hr = meta.hr || clone(defaultHr);
+          meta.site = undefined;
+          meta.machine = undefined;
+        }
+        if (next === "machine") {
+          meta.machine = meta.machine || clone(defaultMachineInstance);
+          meta.site = undefined;
+          meta.hr = undefined;
+        }
+      }
+      buildGraphFromModel();
+    };
+    extraControl.title = meta.title || `${meta.kind === "site" ? "Site" : meta.kind === "hr" ? "Hr" : "Machine"} ${index + 2}`;
+
+    const controlPort = processNode.addInputPort(extraControl.title, isPortrait ? "right" : "bottom");
+    const controlOutput = Object.values(extraControl.outputs)[0];
+    if (controlPort && controlOutput) graph.addConnection(controlOutput, controlPort);
+  });
+
   nextTick(() => {
-    autoArrangeNodes();
-    refreshConnectionCoords();
+    if (hasNewUnpositionedNode) {
+      scheduleLayoutRefresh();
+    } else {
+      refreshConnectionCoords();
+    }
   });
 };
 
@@ -245,6 +713,17 @@ const autoArrangeNodes = () => {
   ) as ResourceNode[];
   const machineNodes = nodes.filter(
     (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "machine"
+  ) as ResourceNode[];
+  const controlNodes = nodes.filter(
+    (node: any) =>
+      node.type === "ResourceNode" &&
+      ((node as any).resourceType === "site" || (node as any).resourceType === "hr")
+  ) as ResourceNode[];
+  const impactNodes = nodes.filter(
+    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "impact"
+  ) as ResourceNode[];
+  const knowHowNodes = nodes.filter(
+    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "knowhow"
   ) as ResourceNode[];
 
   const getNodeSize = (node: any, fallback: { width: number; height: number }) => {
@@ -279,40 +758,250 @@ const autoArrangeNodes = () => {
     const y = centerY - size.height / 2;
     setPos(processNode, x, y);
 
-    const inputGap = 30;
-    const outputGap = 30;
-    const inputSizes = inputNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }));
-    const outputSizes = outputNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }));
-    const inputTotalHeight =
-      inputSizes.reduce((sum, size) => sum + size.height, 0) + Math.max(0, inputSizes.length - 1) * inputGap;
-    const outputTotalHeight =
-      outputSizes.reduce((sum, size) => sum + size.height, 0) + Math.max(0, outputSizes.length - 1) * outputGap;
+    const isPortrait = viewHeight > viewWidth;
+    const rowGap = 24;
+    const colGap = 24;
 
-    let inputY = centerY - inputTotalHeight / 2;
-    inputNodes.forEach((node, index) => {
-      const size = inputSizes[index];
-      const xPos = centerX - size.width - 260;
-      const yPos = inputY;
-      setPos(node, xPos, yPos);
-      inputY += size.height + inputGap;
-    });
+    const placeRow = (nodesToPlace: ResourceNode[], rowY: number) => {
+      if (nodesToPlace.length === 0) return;
+      const sizes = nodesToPlace.map((node) => getNodeSize(node, { width: 440, height: 260 }));
+      const totalWidth = sizes.reduce((sum, item) => sum + item.width, 0) + Math.max(0, nodesToPlace.length - 1) * rowGap;
+      let currentX = centerX - totalWidth / 2;
+      nodesToPlace.forEach((node, index) => {
+        const nodeSize = sizes[index];
+        setPos(node, currentX, rowY);
+        currentX += nodeSize.width + rowGap;
+      });
+    };
 
-    let outputY = centerY - outputTotalHeight / 2;
-    outputNodes.forEach((node, index) => {
-      const size = outputSizes[index];
-      const xPos = centerX + size.width + 220;
-      const yPos = outputY;
-      setPos(node, xPos, yPos);
-      outputY += size.height + outputGap;
-    });
+    const placeColumn = (nodesToPlace: ResourceNode[], colX: number, startY: number) => {
+      if (nodesToPlace.length === 0) return;
+      let currentY = startY;
+      nodesToPlace.forEach((node) => {
+        const nodeSize = getNodeSize(node, { width: 440, height: 260 });
+        setPos(node, colX, currentY);
+        currentY += nodeSize.height + colGap;
+      });
+    };
 
-    if (machineNodes.length > 0) {
-      const machineNode = machineNodes[0];
-      const machineSize = getNodeSize(machineNode, { width: 440, height: 260 });
-      const machineX = centerX - machineSize.width / 2;
-      const machineY = y + size.height + 40;
-      setPos(machineNode, machineX, machineY);
+    if (isPortrait) {
+      const inputMaxHeight = inputNodes.length > 0
+        ? Math.max(...inputNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }).height))
+        : 0;
+      placeRow(inputNodes, y - 120 - inputMaxHeight);
+
+      placeColumn(outputNodes, x + size.width + 120, y);
+
+      if (knowHowNodes.length > 0) {
+        const knowHowSize = getNodeSize(knowHowNodes[0], { width: 440, height: 260 });
+        setPos(knowHowNodes[0], centerX - knowHowSize.width / 2, y - knowHowSize.height - 80);
+      }
+
+      if (impactNodes.length > 0) {
+        const impactSize = getNodeSize(impactNodes[0], { width: 440, height: 260 });
+        setPos(impactNodes[0], x - impactSize.width - 120, centerY - impactSize.height / 2);
+      }
+
+      placeRow(controlNodes, y + size.height + 40);
+
+      if (machineNodes.length > 0) {
+        const hasControls = controlNodes.length > 0;
+        const controlsHeight = hasControls
+          ? Math.max(...controlNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }).height))
+          : 0;
+        const machineY = y + size.height + 40 + (hasControls ? controlsHeight + 40 : 0);
+        placeRow(machineNodes, machineY);
+      }
+    } else {
+      const inputSizes = inputNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }));
+      const outputSizes = outputNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }));
+      const inputTotalHeight =
+        inputSizes.reduce((sum, item) => sum + item.height, 0) + Math.max(0, inputNodes.length - 1) * colGap;
+      const outputTotalHeight =
+        outputSizes.reduce((sum, item) => sum + item.height, 0) + Math.max(0, outputNodes.length - 1) * colGap;
+
+      let inputY = centerY - inputTotalHeight / 2;
+      inputNodes.forEach((node, index) => {
+        const nodeSize = inputSizes[index];
+        setPos(node, x - nodeSize.width - 120, inputY);
+        inputY += nodeSize.height + colGap;
+      });
+
+      let outputY = centerY - outputTotalHeight / 2;
+      outputNodes.forEach((node, index) => {
+        const nodeSize = outputSizes[index];
+        setPos(node, x + size.width + 120, outputY);
+        outputY += nodeSize.height + colGap;
+      });
+
+      if (knowHowNodes.length > 0) {
+        const knowHowSize = getNodeSize(knowHowNodes[0], { width: 440, height: 260 });
+        setPos(knowHowNodes[0], centerX - knowHowSize.width / 2, y - knowHowSize.height - 80);
+      }
+
+      if (impactNodes.length > 0) {
+        const impactSize = getNodeSize(impactNodes[0], { width: 440, height: 260 });
+        setPos(impactNodes[0], x - impactSize.width - 120, y - impactSize.height - 20);
+      }
+
+      placeRow(controlNodes, y + size.height + 40);
+
+      if (machineNodes.length > 0) {
+        const hasControls = controlNodes.length > 0;
+        const controlsHeight = hasControls
+          ? Math.max(...controlNodes.map((node) => getNodeSize(node, { width: 440, height: 260 }).height))
+          : 0;
+        const machineY = y + size.height + 40 + (hasControls ? controlsHeight + 40 : 0);
+        placeRow(machineNodes, machineY);
+      }
     }
+
+    const resolveOverlaps = () => {
+      const spacing = 24;
+      const movable = [...nodes];
+      const getRect = (node: any) => {
+        const nodeSize = getNodeSize(node, { width: 440, height: 260 });
+        return {
+          left: node.position.x,
+          top: node.position.y,
+          right: node.position.x + nodeSize.width,
+          bottom: node.position.y + nodeSize.height,
+        };
+      };
+
+      for (let pass = 0; pass < 4; pass += 1) {
+        for (let i = 0; i < movable.length; i += 1) {
+          for (let j = i + 1; j < movable.length; j += 1) {
+            const a = movable[i] as any;
+            const b = movable[j] as any;
+            const ra = getRect(a);
+            const rb = getRect(b);
+            const overlapX = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+            const overlapY = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+            if (overlapX <= 0 || overlapY <= 0) continue;
+
+            const shiftX = overlapX / 2 + spacing;
+            const shiftY = overlapY / 2 + spacing;
+            const isProcessA = a.type === "ProcessNode";
+            const isProcessB = b.type === "ProcessNode";
+
+            if (isProcessA && !isProcessB) {
+              setPos(b, b.position.x + shiftX, b.position.y + shiftY);
+              continue;
+            }
+            if (!isProcessA && isProcessB) {
+              setPos(a, a.position.x - shiftX, a.position.y - shiftY);
+              continue;
+            }
+
+            setPos(a, a.position.x - shiftX, a.position.y - shiftY);
+            setPos(b, b.position.x + shiftX, b.position.y + shiftY);
+          }
+        }
+      }
+
+      const processRect = {
+        left: processNode.position.x,
+        top: processNode.position.y,
+        right: processNode.position.x + size.width,
+        bottom: processNode.position.y + size.height,
+      };
+
+      const inflate = 28;
+      const expanded = {
+        left: processRect.left - inflate,
+        top: processRect.top - inflate,
+        right: processRect.right + inflate,
+        bottom: processRect.bottom + inflate,
+      };
+
+      const intersects = (nodeRect: { left: number; top: number; right: number; bottom: number }) =>
+        !(nodeRect.right <= expanded.left || nodeRect.left >= expanded.right || nodeRect.bottom <= expanded.top || nodeRect.top >= expanded.bottom);
+
+      const sideForNode = (node: any): "left" | "right" | "top" | "bottom" => {
+        const resourceType = (node as any).resourceType;
+        if (resourceType === "knowhow") return "top";
+        if (resourceType === "output") return "right";
+        if (isPortrait) {
+          if (resourceType === "input") return "top";
+          if (resourceType === "impact") return "left";
+          return "bottom";
+        }
+        if (resourceType === "input") return "left";
+        if (resourceType === "impact") return "top";
+        return "bottom";
+      };
+
+      movable.forEach((node) => {
+        if ((node as any).type === "ProcessNode") return;
+        const rect = getRect(node as any);
+        if (!intersects(rect)) return;
+
+        const lane = sideForNode(node as any);
+        const nodeSize = getNodeSize(node as any, { width: 440, height: 260 });
+        if (lane === "left") {
+          setPos(node as any, expanded.left - nodeSize.width - 20, (node as any).position.y);
+          return;
+        }
+        if (lane === "right") {
+          setPos(node as any, expanded.right + 20, (node as any).position.y);
+          return;
+        }
+        if (lane === "top") {
+          setPos(node as any, (node as any).position.x, expanded.top - nodeSize.height - 20);
+          return;
+        }
+        setPos(node as any, (node as any).position.x, expanded.bottom + 20);
+      });
+
+      const lanePriority = (node: any): number => {
+        const lane = sideForNode(node);
+        if (lane === "left") return 0;
+        if (lane === "top") return 1;
+        if (lane === "right") return 2;
+        return 3;
+      };
+
+      const moveByLane = (node: any, shiftX: number, shiftY: number) => {
+        const lane = sideForNode(node);
+        if (lane === "left" || lane === "right") {
+          setPos(node, node.position.x, node.position.y + shiftY);
+          return;
+        }
+        setPos(node, node.position.x + shiftX, node.position.y);
+      };
+
+      const nonProcess = movable.filter((node: any) => node.type !== "ProcessNode");
+      for (let pass = 0; pass < 8; pass += 1) {
+        nonProcess.sort((first: any, second: any) => {
+          const laneDelta = lanePriority(first) - lanePriority(second);
+          if (laneDelta !== 0) return laneDelta;
+          if (Math.abs(first.position.y - second.position.y) > 1) return first.position.y - second.position.y;
+          return first.position.x - second.position.x;
+        });
+
+        let changed = false;
+        for (let i = 0; i < nonProcess.length; i += 1) {
+          for (let j = i + 1; j < nonProcess.length; j += 1) {
+            const first = nonProcess[i] as any;
+            const second = nonProcess[j] as any;
+            const firstRect = getRect(first);
+            const secondRect = getRect(second);
+            const overlapX = Math.min(firstRect.right, secondRect.right) - Math.max(firstRect.left, secondRect.left);
+            const overlapY = Math.min(firstRect.bottom, secondRect.bottom) - Math.max(firstRect.top, secondRect.top);
+            if (overlapX <= 0 || overlapY <= 0) continue;
+
+            const shiftX = overlapX + spacing;
+            const shiftY = overlapY + spacing;
+            moveByLane(second, shiftX, shiftY);
+            changed = true;
+          }
+        }
+        if (!changed) break;
+      }
+    };
+
+    resolveOverlaps();
   }
 };
 
@@ -323,15 +1012,138 @@ const addInputInstance = () => {
   buildGraphFromModel();
 };
 
+const addOutputInstance = () => {
+  const process = ensureProcessWithInputs();
+  if (!process) return;
+  process.outputNodes = process.outputNodes || [];
+  const rootOutput = value.value.instance as ProductInstance | PricedProduct | undefined;
+  process.outputNodes.push({
+    title: `Output ${process.outputNodes.length + 2}`,
+    fields: { outputKg: 1, destination: "" },
+    outputInstance: rootOutput ? clone(rootOutput) : undefined,
+  });
+  buildGraphFromModel();
+};
+
+const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<unknown>) => {
+  if ((node as any).resourceType !== "output") return;
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+
+  /* Create a full ProcessNode with initial process data so it renders
+     identically to the central process (Idef0Node with all fields). */
+  const nextProcess = graph.addNode(new ProcessNode());
+  if (!nextProcess) return;
+
+  const newProcessData = {
+    type: "process",
+    category: "process",
+    name: undefined,
+    inputInstances: [],
+    outputNodes: [],
+    controlNodes: [],
+  } as any;
+
+  (nextProcess as any).process = newProcessData;
+  (nextProcess as any).onProcessUpdate = (next: ProcessShape) => {
+    Object.assign(newProcessData, next);
+  };
+  nextProcess.title = "Process";
+
+  const isPortrait = isPortraitLayout();
+  /* Connect from Output's right-side output port → new Process left/top input */
+  const inputPort = nextProcess.addInputPort("Input 1", isPortrait ? "top" : "left");
+  /* Also give it a default output port on the right */
+  nextProcess.addOutputPort("Output 1", "right");
+
+  if (inputPort) graph.addConnection(intf, inputPort);
+
+  const baseX = (node as any).position?.x ?? 0;
+  const baseY = (node as any).position?.y ?? 0;
+  const offsetX = isPortrait ? 0 : 520;
+  const offsetY = isPortrait ? 320 : 0;
+  /* Stagger each spawned process so they don't stack on each other */
+  const stagger = spawnedProcessCount * (isPortrait ? 80 : 80);
+  const finalX = baseX + offsetX + (isPortrait ? stagger : 0);
+  const finalY = baseY + offsetY + (isPortrait ? 0 : stagger);
+  setNodePosition(nextProcess, finalX, finalY);
+  spawnedProcessNodes.add(nextProcess.id);
+  spawnedProcessCount++;
+  /* Wait for Vue to mount the new node DOM before refreshing
+     connection coordinates – otherwise port positions are (0,0). */
+  nextTick(() => scheduleLayoutRefresh());
+};
+
+const deleteSpawnedProcess = (node: any) => {
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+  spawnedProcessNodes.delete(node.id);
+  /* Remove all connections attached to this node */
+  const toRemove = graph.connections.filter(
+    (c: any) => c.from?.nodeId === node.id || c.to?.nodeId === node.id
+  );
+  toRemove.forEach((c: any) => graph.removeConnection(c));
+  graph.removeNode(node);
+  nextTick(() => scheduleLayoutRefresh());
+};
+
+const addControlNode = () => {
+  const process = ensureProcessWithInputs();
+  if (!process) return;
+  process.controlNodes = process.controlNodes || [];
+  process.controlNodes.push({
+    kind: "hr",
+    hr: clone(defaultHr),
+  });
+  buildGraphFromModel();
+};
+
 const deleteResourceNode = (node: ResourceNode) => {
   const process = ensureProcessWithInputs();
   if (!process) return;
-  if ((node as any).resourceType === "output") return;
+
+  const meta = (node as any).__tmMeta as NodeMeta | undefined;
+  const cacheKey = nodeKeyFromMeta(meta);
+  if (cacheKey) {
+    nodePositionCache.delete(cacheKey);
+  }
+  if (meta) {
+    if (meta.kind === "input") {
+      process.inputInstances.splice(meta.index, 1);
+    }
+    if (meta.kind === "output-extra") {
+      process.outputNodes = process.outputNodes || [];
+      process.outputNodes.splice(meta.index, 1);
+    }
+    if (meta.kind === "machine") {
+      process.machineInstance = undefined;
+    }
+    if (meta.kind === "site-main") {
+      process.site = undefined;
+    }
+    if (meta.kind === "hr-main") {
+      process.hr = undefined;
+    }
+    if (meta.kind === "control-extra") {
+      process.controlNodes = process.controlNodes || [];
+      process.controlNodes.splice(meta.index, 1);
+    }
+    if (meta.kind === "knowhow") {
+      process.knowHow = undefined;
+    }
+    if (meta.kind === "impact") {
+      process.impacts = undefined;
+    }
+    buildGraphFromModel();
+    return;
+  }
+
   const instance = (node as any).inputInstance as InputInstance | undefined;
-  if (!instance) return;
-  const index = process.inputInstances.findIndex((item) => item === instance);
-  if (index >= 0) {
-    process.inputInstances.splice(index, 1);
+  if (instance) {
+    const index = process.inputInstances.findIndex((item) => item === instance);
+    if (index >= 0) {
+      process.inputInstances.splice(index, 1);
+    }
   }
   buildGraphFromModel();
 };
@@ -345,7 +1157,12 @@ onMounted(() => {
   };
 
   tryInstall();
-  markerObserver = new MutationObserver(() => installConnectionMarkers());
+  let arrowUpdateTimer: number | null = null;
+  markerObserver = new MutationObserver(() => {
+    installConnectionMarkers();
+    if (arrowUpdateTimer) cancelAnimationFrame(arrowUpdateTimer);
+    arrowUpdateTimer = requestAnimationFrame(() => updateConnectionArrows());
+  });
   markerObserver.observe(document.body, { childList: true, subtree: true });
 
   buildGraphFromModel();
@@ -375,8 +1192,7 @@ watch(
 watch(
   () => [baklava.displayedGraph.nodes.length, baklava.displayedGraph.connections.length],
   () => {
-    setTimeout(() => autoArrangeNodes(), 50);
-    setTimeout(() => refreshConnectionCoords(), 100);
+    scheduleLayoutRefresh();
   }
 );
 </script>
@@ -399,11 +1215,18 @@ watch(
             <template #title></template>
             <template #nodeInterface></template>
             <template #content>
-              <Idef0Node
-                :node="node"
-                :on-add-input="addInputInstance"
-                :on-delete="undefined"
-              />
+              <div
+                class="tm-node-drag-surface"
+                @pointerdown="(event) => handleNodePointerDown(event as PointerEvent, node, onStartDrag, onSelect)"
+              >
+                <Idef0Node
+                  :node="node"
+                  :on-add-input="addInputInstance"
+                  :on-add-output="addOutputInstance"
+                  :on-add-mechanism="addControlNode"
+                  :on-delete="spawnedProcessNodes.has(node.id) ? () => deleteSpawnedProcess(node as any) : undefined"
+                />
+              </div>
             </template>
           </Components.Node>
         </template>
@@ -418,10 +1241,20 @@ watch(
             <template #title></template>
             <template #nodeInterface></template>
             <template #content>
-              <ResourceNodeVue
-                :node="node"
-                :on-delete="() => deleteResourceNode(node as ResourceNode)"
-              />
+              <div
+                class="tm-node-drag-surface"
+                @pointerdown="(event) => handleNodePointerDown(event as PointerEvent, node, onStartDrag, onSelect)"
+              >
+                <ResourceNodeVue
+                  :node="node"
+                  :on-delete="
+                    (node as any).__tmMeta?.kind === 'output-root'
+                      ? undefined
+                      : () => deleteResourceNode(node as ResourceNode)
+                  "
+                  :on-output-connector="(intf) => addProcessFromOutputConnector(node as ResourceNode, intf)"
+                />
+              </div>
             </template>
           </Components.Node>
         </template>
