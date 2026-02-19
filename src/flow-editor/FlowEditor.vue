@@ -801,6 +801,15 @@ const autoArrangeNodes = () => {
   const nodes = graph.nodes;
   if (nodes.length === 0) return;
 
+  /* Safety net: save every spawned-process position so that nothing below
+     can accidentally move them (e.g. indirect reactive cascades). */
+  const savedSpawnedPositions = new Map<string, { x: number; y: number }>();
+  nodes.forEach((n: any) => {
+    if (isSpawnedProcessNode(n) || isSpawnedResourceNode(n)) {
+      savedSpawnedPositions.set(n.id, { x: n.position?.x ?? 0, y: n.position?.y ?? 0 });
+    }
+  });
+
   const processNode = nodes.find(
     (node: any) => node.type === "ProcessNode" && !isSpawnedProcessNode(node)
   ) as ProcessNode | undefined;
@@ -1121,6 +1130,17 @@ const autoArrangeNodes = () => {
 
     resolveOverlaps();
   }
+
+  /* Restore every spawned-process / spawned-resource position so that
+     no reactive side-effect of the central layout can move them. */
+  savedSpawnedPositions.forEach((pos, id) => {
+    const n = graph.nodes.find((nd: any) => nd.id === id) as any;
+    if (n) {
+      n.position.x = pos.x;
+      n.position.y = pos.y;
+      setNodePosition(n, pos.x, pos.y);
+    }
+  });
 };
 
 const addInputInstance = () => {
@@ -1188,7 +1208,10 @@ const addOutputInstanceForProcessNode = (node: ProcessNode) => {
   placeNodeAvoidingOverlap(graph, outputNode, baseX + offsetX, baseY + offsetY, "y", [node.id]);
   trackSpawnedChild(node.id, outputNode.id);
 
-  nextTick(() => scheduleLayoutRefresh());
+  /* Only refresh connection visuals – never re-run central auto-arrange
+     when mutating spawned-process children, otherwise the central layout
+     engine can indirectly shift the spawned process position. */
+  nextTick(() => refreshConnectionCoords());
 };
 
 const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<unknown>) => {
@@ -1270,7 +1293,7 @@ const deleteSpawnedProcess = (node: any) => {
   );
   toRemove.forEach((c: any) => graph.removeConnection(c));
   graph.removeNode(node);
-  nextTick(() => scheduleLayoutRefresh());
+  nextTick(() => refreshConnectionCoords());
 };
 
 const addControlNodeForProcessNode = (node: ProcessNode) => {
@@ -1333,7 +1356,7 @@ const addControlNodeForProcessNode = (node: ProcessNode) => {
         if (controlPort && nextOutput) graph.addConnection(nextOutput, controlPort);
         trackSpawnedChild(node.id, nextNode.id);
       }
-      nextTick(() => scheduleLayoutRefresh());
+      nextTick(() => refreshConnectionCoords());
     };
 
     return controlNode;
@@ -1357,7 +1380,7 @@ const addControlNodeForProcessNode = (node: ProcessNode) => {
     trackSpawnedChild(node.id, controlNode.id);
   }
 
-  nextTick(() => scheduleLayoutRefresh());
+  nextTick(() => refreshConnectionCoords());
 };
 
 const deleteSpawnedResourceNode = (node: ResourceNode) => {
@@ -1373,7 +1396,7 @@ const deleteSpawnedResourceNode = (node: ResourceNode) => {
   );
   toRemove.forEach((c: any) => graph.removeConnection(c));
   graph.removeNode(node);
-  nextTick(() => scheduleLayoutRefresh());
+  nextTick(() => refreshConnectionCoords());
 };
 
 const addControlNode = () => {
