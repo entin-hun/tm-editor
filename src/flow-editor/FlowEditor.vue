@@ -463,6 +463,22 @@ const isSpawnedResourceNode = (node: any) => {
 const isSpawnedProcess = (node: any) =>
   Boolean((node as any).__tmSpawned) || spawnedProcessNodes.has((node as any).id);
 
+/** Check if a central node has any spawned process connected to it. */
+const nodeHasSpawnedConnection = (node: any): boolean => {
+  const graph = baklava.displayedGraph as any;
+  if (!graph?.connections) return false;
+  const nodeId = node.id;
+  return graph.connections.some((c: any) => {
+    const otherId =
+      c.from?.nodeId === nodeId ? c.to?.nodeId :
+      c.to?.nodeId === nodeId ? c.from?.nodeId :
+      null;
+    if (!otherId) return false;
+    const otherNode = graph.nodes.find((n: any) => n.id === otherId);
+    return otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
+  });
+};
+
 const handleAddOutputForNode = (node: any) => {
   if (isSpawnedProcess(node)) {
     addOutputInstanceForProcessNode(node as ProcessNode);
@@ -1075,18 +1091,70 @@ const autoArrangeNodes = () => {
       const outputTotalHeight =
         outputSizes.reduce((sum, item) => sum + item.height, 0) + Math.max(0, outputNodes.length - 1) * colGap;
 
+      /* Place inputs on the left, accounting for spawned chains.
+         After placing each input node, find the lowest spawned node
+         connected to it (directly or transitively) and ensure the next
+         input starts below that bounding box. */
+      const spawnedNodesArr = nodes.filter(
+        (n: any) => isSpawnedProcessNode(n) || isSpawnedResourceNode(n)
+      );
+
+      /** Return the bottom-most Y coordinate of any spawned node connected
+       *  (directly) to the given central input node. */
+      const spawnedChainBottom = (centralNode: any): number => {
+        let bottom = -Infinity;
+        const centralId = centralNode.id;
+        /* Collect spawned nodes directly connected to this central node */
+        const directConnected = new Set<string>();
+        (graph.connections as any[]).forEach((c: any) => {
+          if (c.from?.nodeId === centralId || c.to?.nodeId === centralId) {
+            const otherId = c.from?.nodeId === centralId ? c.to?.nodeId : c.from?.nodeId;
+            if (otherId) directConnected.add(otherId);
+          }
+        });
+        /* Expand to spawned children transitively */
+        const visited = new Set<string>();
+        const queue = [...directConnected];
+        while (queue.length > 0) {
+          const id = queue.pop()!;
+          if (visited.has(id)) continue;
+          visited.add(id);
+          const childIds = spawnedProcessChildren.get(id);
+          if (childIds) childIds.forEach((cid) => queue.push(cid));
+        }
+        for (const sn of spawnedNodesArr) {
+          if (!visited.has(sn.id) && !directConnected.has(sn.id)) continue;
+          const sr = getNodeSize(sn, { width: 440, height: 260 });
+          const sb = ((sn as any).position?.y ?? 0) + sr.height;
+          if (sb > bottom) bottom = sb;
+        }
+        return bottom;
+      };
+
       let inputY = centerY - inputTotalHeight / 2;
       inputNodes.forEach((node, index) => {
         const nodeSize = inputSizes[index];
         setPos(node, x - nodeSize.width - 120, inputY);
-        inputY += nodeSize.height + colGap;
+        /* Advance Y past the node itself */
+        let nextY = inputY + nodeSize.height + colGap;
+        /* If this node has spawned chains, ensure next node starts below them */
+        const chainBottom = spawnedChainBottom(node);
+        if (chainBottom > nextY) {
+          nextY = chainBottom + colGap;
+        }
+        inputY = nextY;
       });
 
       let outputY = centerY - outputTotalHeight / 2;
       outputNodes.forEach((node, index) => {
         const nodeSize = outputSizes[index];
         setPos(node, x + size.width + 120, outputY);
-        outputY += nodeSize.height + colGap;
+        let nextOY = outputY + nodeSize.height + colGap;
+        const chainBot = spawnedChainBottom(node);
+        if (chainBot > nextOY) {
+          nextOY = chainBot + colGap;
+        }
+        outputY = nextOY;
       });
 
       if (knowHowNodes.length > 0) {
@@ -1859,12 +1927,14 @@ watch(
                   :on-delete="
                     (node as any).__tmMeta?.kind === 'output-root'
                       ? undefined
-                      : String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
-                        ? () => deleteSpawnedResourceNode(node as ResourceNode)
-                        : () => deleteResourceNode(node as ResourceNode)
+                      : nodeHasSpawnedConnection(node)
+                        ? undefined
+                        : String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
+                          ? () => deleteSpawnedResourceNode(node as ResourceNode)
+                          : () => deleteResourceNode(node as ResourceNode)
                   "
                   :on-output-connector="(intf) => addProcessFromOutputConnector(node as ResourceNode, intf)"
-                  :on-input-connector="(intf) => addProcessFromInputConnector(node as ResourceNode, intf)"
+                  :on-input-connector="nodeHasSpawnedConnection(node) ? undefined : (intf) => addProcessFromInputConnector(node as ResourceNode, intf)"
                 />
               </div>
             </template>

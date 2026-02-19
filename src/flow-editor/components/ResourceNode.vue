@@ -495,9 +495,10 @@ const syncKnowHowHash = () => {
         :intf="intf"
         :style="getPortStyle('left', index, leftPorts.length)"
       />
-      <!-- + badge on the left side of input nodes (when left ports exist) -->
+      <!-- + badge on the left side of input nodes (when left ports exist).
+           Hidden when an input connector callback is not provided (i.e. already has a spawn). -->
       <span
-        v-if="isInput"
+        v-if="isInput && props.onInputConnector"
         class="output-add-badge"
         :style="getBadgeStyleLeft(index, leftPorts.length)"
         @pointerdown.capture.stop.prevent="handleInputPointerDown($event, intf)"
@@ -507,7 +508,7 @@ const syncKnowHowHash = () => {
 
     <!-- Standalone + badge for input nodes that have no left ports yet -->
     <span
-      v-if="isInput && leftPorts.length === 0"
+      v-if="isInput && leftPorts.length === 0 && props.onInputConnector"
       class="output-add-badge"
       :style="{ position: 'absolute', left: 'calc(0% - 26px)', top: '50%', transform: 'translate(0, -50%)' }"
       @pointerdown.capture.stop.prevent="handleInputPointerDownStandalone($event)"
