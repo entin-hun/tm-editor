@@ -402,6 +402,54 @@ const getNodeSizeForLayout = (node: any, fallback = { width: 440, height: 260 })
   };
 };
 
+const rectsOverlap = (
+  first: { left: number; top: number; right: number; bottom: number },
+  second: { left: number; top: number; right: number; bottom: number }
+) => first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
+
+const placeNodeAvoidingOverlap = (
+  graph: any,
+  node: any,
+  startX: number,
+  startY: number,
+  axis: "x" | "y",
+  ignoreNodeIds: string[] = []
+) => {
+  const gap = 24;
+  const size = getNodeSizeForLayout(node);
+  let x = startX;
+  let y = startY;
+
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const nextRect = { left: x, top: y, right: x + size.width, bottom: y + size.height };
+    const collides = graph.nodes.some((other: any) => {
+      if (!other || other.id === node.id || ignoreNodeIds.includes(other.id)) return false;
+      const otherSize = getNodeSizeForLayout(other);
+      const otherRect = {
+        left: other.position.x,
+        top: other.position.y,
+        right: other.position.x + otherSize.width,
+        bottom: other.position.y + otherSize.height,
+      };
+      return rectsOverlap(nextRect, otherRect);
+    });
+    if (!collides) break;
+    if (axis === "y") {
+      y += size.height + gap;
+    } else {
+      x += size.width + gap;
+    }
+  }
+
+  setNodePosition(node, x, y);
+};
+
+const isSpawnedProcessNode = (node: any) => Boolean((node as any).__tmSpawned);
+const isSpawnedResourceNode = (node: any) => {
+  const meta = (node as any).__tmMeta as { kind?: string } | undefined;
+  return typeof meta?.kind === "string" && meta.kind.startsWith("spawned-");
+};
+
 const clearGraph = () => {
   const graph = baklava.displayedGraph as any;
   if (!graph?.removeNode) return;
@@ -727,26 +775,45 @@ const autoArrangeNodes = () => {
   const nodes = graph.nodes;
   if (nodes.length === 0) return;
 
-  const processNode = nodes.find((node: any) => node.type === "ProcessNode") as ProcessNode | undefined;
+  const processNode = nodes.find(
+    (node: any) => node.type === "ProcessNode" && !isSpawnedProcessNode(node)
+  ) as ProcessNode | undefined;
+  if (!processNode) return;
   const inputNodes = nodes.filter(
-    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "input"
+    (node: any) =>
+      node.type === "ResourceNode" &&
+      (node as any).resourceType === "input" &&
+      !isSpawnedResourceNode(node)
   ) as ResourceNode[];
   const outputNodes = nodes.filter(
-    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "output"
+    (node: any) =>
+      node.type === "ResourceNode" &&
+      (node as any).resourceType === "output" &&
+      !isSpawnedResourceNode(node)
   ) as ResourceNode[];
   const machineNodes = nodes.filter(
-    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "machine"
+    (node: any) =>
+      node.type === "ResourceNode" &&
+      (node as any).resourceType === "machine" &&
+      !isSpawnedResourceNode(node)
   ) as ResourceNode[];
   const controlNodes = nodes.filter(
     (node: any) =>
       node.type === "ResourceNode" &&
-      ((node as any).resourceType === "site" || (node as any).resourceType === "hr")
+      ((node as any).resourceType === "site" || (node as any).resourceType === "hr") &&
+      !isSpawnedResourceNode(node)
   ) as ResourceNode[];
   const impactNodes = nodes.filter(
-    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "impact"
+    (node: any) =>
+      node.type === "ResourceNode" &&
+      (node as any).resourceType === "impact" &&
+      !isSpawnedResourceNode(node)
   ) as ResourceNode[];
   const knowHowNodes = nodes.filter(
-    (node: any) => node.type === "ResourceNode" && (node as any).resourceType === "knowhow"
+    (node: any) =>
+      node.type === "ResourceNode" &&
+      (node as any).resourceType === "knowhow" &&
+      !isSpawnedResourceNode(node)
   ) as ResourceNode[];
 
   const getNodeSize = (node: any, fallback: { width: number; height: number }) => {
@@ -881,7 +948,9 @@ const autoArrangeNodes = () => {
 
     const resolveOverlaps = () => {
       const spacing = 24;
-      const movable = [...nodes];
+      const movable = nodes.filter(
+        (node: any) => !isSpawnedProcessNode(node) && !isSpawnedResourceNode(node)
+      );
       const getRect = (node: any) => {
         const nodeSize = getNodeSize(node, { width: 440, height: 260 });
         return {
@@ -1053,12 +1122,13 @@ const addOutputInstanceForProcessNode = (node: ProcessNode) => {
   if (!graph) return;
   const process = (node as any).process as ProcessShape | undefined;
   if (!process) return;
+  const spawnTemplate = (node as any).__tmSpawnTemplate as OutputMeta | undefined;
   process.outputNodes = process.outputNodes || [];
   const nextIndex = process.outputNodes.length + 1;
   const outputMeta = {
     title: `Output ${nextIndex}`,
-    fields: { outputKg: 1, destination: "" },
-    outputInstance: undefined,
+    fields: spawnTemplate?.fields ? clone(spawnTemplate.fields) : { outputKg: 1, destination: "" },
+    outputInstance: spawnTemplate?.outputInstance ? clone(spawnTemplate.outputInstance) : undefined,
   } as OutputMeta;
   process.outputNodes.push(outputMeta);
 
@@ -1089,7 +1159,7 @@ const addOutputInstanceForProcessNode = (node: ProcessNode) => {
   const colGap = 24;
   const offsetX = processSize.width + 120;
   const offsetY = (nextIndex - 1) * (outputSize.height + colGap);
-  setNodePosition(outputNode, baseX + offsetX, baseY + offsetY);
+  placeNodeAvoidingOverlap(graph, outputNode, baseX + offsetX, baseY + offsetY, "y", [node.id]);
   trackSpawnedChild(node.id, outputNode.id);
 
   nextTick(() => scheduleLayoutRefresh());
@@ -1115,6 +1185,10 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
   } as any;
 
   (nextProcess as any).process = newProcessData;
+  (nextProcess as any).__tmSpawnTemplate = {
+    outputInstance: (node as any).outputInstance ? clone((node as any).outputInstance) : undefined,
+    fields: (node as any).fields ? clone((node as any).fields) : undefined,
+  } as OutputMeta;
   (nextProcess as any).onProcessUpdate = (next: ProcessShape) => {
     Object.assign(newProcessData, next);
   };
@@ -1251,7 +1325,7 @@ const addControlNodeForProcessNode = (node: ProcessNode) => {
   const offsetX = index * (controlSize.width + rowGap);
   const offsetY = processSize.height + 40;
   if (controlNode) {
-    setNodePosition(controlNode, baseX + offsetX, baseY + offsetY);
+    placeNodeAvoidingOverlap(graph, controlNode, baseX + offsetX, baseY + offsetY, "x", [node.id]);
     trackSpawnedChild(node.id, controlNode.id);
   }
 
@@ -1386,6 +1460,12 @@ watch(
 
 <template>
   <div class="flow-editor-root" ref="rootEl">
+    <div
+      class="flow-editor-debug-badge"
+      style="position: absolute; top: 8px; left: 8px; z-index: 5; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #ffb74d; color: #101418; font-weight: 700;"
+    >
+      FlowEditor v2
+    </div>
     <BaklavaEditor :view-model="baklava">
       <template #node="{ node, selected, dragging, onStartDrag, onSelect }">
         <template v-if="node.type && (node.type.includes('Subgraph') || node.type.includes('__baklava'))">
