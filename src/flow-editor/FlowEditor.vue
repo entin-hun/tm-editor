@@ -261,7 +261,9 @@ type NodeMeta =
   | { kind: "hr-main" }
   | { kind: "control-extra"; index: number }
   | { kind: "knowhow" }
-  | { kind: "impact" };
+  | { kind: "impact" }
+  | { kind: "spawned-output"; parentId: string; index: number }
+  | { kind: "spawned-control"; parentId: string; index: number };
 
 const ensureProcessWithInputs = (): ProcessShape | null => {
   const inst = value.value.instance as unknown as { process?: ProcessShape } | undefined;
@@ -308,7 +310,17 @@ const nodePositionCache = new Map<string, { x: number; y: number }>();
 
 /** Track spawned (connector-added) process nodes for deletion and anti-stacking */
 const spawnedProcessNodes = new Set<string>();
+const spawnedProcessChildren = new Map<string, Set<string>>();
 let spawnedProcessCount = 0;
+
+const trackSpawnedChild = (parentId: string, childId: string) => {
+  let set = spawnedProcessChildren.get(parentId);
+  if (!set) {
+    set = new Set<string>();
+    spawnedProcessChildren.set(parentId, set);
+  }
+  set.add(childId);
+};
 
 const isInteractiveTarget = (target: EventTarget | null) => {
   if (!target || !(target instanceof HTMLElement)) return false;
@@ -377,6 +389,17 @@ const isPortraitLayout = () => {
   const width = bounds?.width ?? window.innerWidth;
   const height = bounds?.height ?? window.innerHeight;
   return height > width;
+};
+
+const getNodeSizeForLayout = (node: any, fallback = { width: 440, height: 260 }) => {
+  const el = document.getElementById(node.id);
+  if (!el) return fallback;
+  const rect = el.getBoundingClientRect();
+  const scale = baklava.displayedGraph?.scaling || 1;
+  return {
+    width: rect.width / scale,
+    height: rect.height / scale,
+  };
 };
 
 const clearGraph = () => {
@@ -1025,6 +1048,53 @@ const addOutputInstance = () => {
   buildGraphFromModel();
 };
 
+const addOutputInstanceForProcessNode = (node: ProcessNode) => {
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+  const process = (node as any).process as ProcessShape | undefined;
+  if (!process) return;
+  process.outputNodes = process.outputNodes || [];
+  const nextIndex = process.outputNodes.length + 1;
+  const outputMeta = {
+    title: `Output ${nextIndex}`,
+    fields: { outputKg: 1, destination: "" },
+    outputInstance: undefined,
+  } as OutputMeta;
+  process.outputNodes.push(outputMeta);
+
+  const outputNode = graph.addNode(new ResourceNode("output"));
+  if (!outputNode) return;
+  (outputNode as any).__tmMeta = { kind: "spawned-output", parentId: node.id, index: nextIndex - 1 } as NodeMeta;
+  (outputNode as any).outputInstance = outputMeta.outputInstance;
+  (outputNode as any).onOutputUpdate = (next: ProductInstance | PricedProduct) => {
+    outputMeta.outputInstance = next;
+  };
+  (outputNode as any).fields = outputMeta.fields || {};
+  (outputNode as any).onFieldsUpdate = (fields: ResourceFields) => {
+    outputMeta.fields = { ...fields };
+  };
+  (outputNode as any).onTitleUpdate = (title: string) => {
+    outputMeta.title = title;
+  };
+  outputNode.title = outputMeta.title || `Output ${nextIndex}`;
+
+  const outputPort = node.addOutputPort(`Output ${nextIndex}`, "right");
+  const outputInput = Object.values(outputNode.inputs)[0];
+  if (outputPort && outputInput) graph.addConnection(outputPort, outputInput);
+
+  const baseX = (node as any).position?.x ?? 0;
+  const baseY = (node as any).position?.y ?? 0;
+  const processSize = getNodeSizeForLayout(node);
+  const outputSize = getNodeSizeForLayout(outputNode);
+  const colGap = 24;
+  const offsetX = processSize.width + 120;
+  const offsetY = (nextIndex - 1) * (outputSize.height + colGap);
+  setNodePosition(outputNode, baseX + offsetX, baseY + offsetY);
+  trackSpawnedChild(node.id, outputNode.id);
+
+  nextTick(() => scheduleLayoutRefresh());
+};
+
 const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<unknown>) => {
   if ((node as any).resourceType !== "output") return;
   const graph = baklava.displayedGraph;
@@ -1068,6 +1138,7 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
   const finalY = baseY + offsetY + (isPortrait ? 0 : stagger);
   setNodePosition(nextProcess, finalX, finalY);
   spawnedProcessNodes.add(nextProcess.id);
+  (nextProcess as any).__tmSpawned = true;
   spawnedProcessCount++;
   /* Wait for Vue to mount the new node DOM before refreshing
      connection coordinates – otherwise port positions are (0,0). */
@@ -1078,7 +1149,123 @@ const deleteSpawnedProcess = (node: any) => {
   const graph = baklava.displayedGraph;
   if (!graph) return;
   spawnedProcessNodes.delete(node.id);
+  const children = spawnedProcessChildren.get(node.id);
+  if (children) {
+    children.forEach((childId) => {
+      const childNode = graph.findNodeById(childId);
+      if (!childNode) return;
+      const childConnections = graph.connections.filter(
+        (c: any) => c.from?.nodeId === childId || c.to?.nodeId === childId
+      );
+      childConnections.forEach((c: any) => graph.removeConnection(c));
+      graph.removeNode(childNode);
+    });
+    spawnedProcessChildren.delete(node.id);
+  }
   /* Remove all connections attached to this node */
+  const toRemove = graph.connections.filter(
+    (c: any) => c.from?.nodeId === node.id || c.to?.nodeId === node.id
+  );
+  toRemove.forEach((c: any) => graph.removeConnection(c));
+  graph.removeNode(node);
+  nextTick(() => scheduleLayoutRefresh());
+};
+
+const addControlNodeForProcessNode = (node: ProcessNode) => {
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+  const process = (node as any).process as ProcessShape | undefined;
+  if (!process) return;
+  process.controlNodes = process.controlNodes || [];
+  const meta: ControlMeta = { kind: "hr", hr: clone(defaultHr) };
+  process.controlNodes.push(meta);
+  const index = process.controlNodes.length - 1;
+
+  const createControlNode = (kind: "site" | "hr" | "machine") => {
+    const controlNode = graph.addNode(new ResourceNode(kind));
+    if (!controlNode) return null;
+    (controlNode as any).__tmMeta = { kind: "spawned-control", parentId: node.id, index } as NodeMeta;
+    (controlNode as any).controlKind = kind;
+    if (kind === "site") (controlNode as any).site = meta.site;
+    if (kind === "hr") (controlNode as any).hr = meta.hr;
+    if (kind === "machine") (controlNode as any).machineInstance = meta.machine || clone(defaultMachineInstance);
+
+    (controlNode as any).onSiteUpdate = (next?: unknown) => {
+      meta.site = next;
+    };
+    (controlNode as any).onHrUpdate = (next?: Hr) => {
+      meta.hr = next;
+    };
+    (controlNode as any).onMachineUpdate = (next: MachineInstance) => {
+      meta.machine = next;
+    };
+    (controlNode as any).onControlKindUpdate = (next: "site" | "hr" | "machine") => {
+      meta.kind = next;
+      if (next === "site") {
+        meta.site = meta.site || clone(defaultSite);
+        meta.hr = undefined;
+        meta.machine = undefined;
+      } else if (next === "hr") {
+        meta.hr = meta.hr || clone(defaultHr);
+        meta.site = undefined;
+        meta.machine = undefined;
+      } else {
+        meta.machine = meta.machine || clone(defaultMachineInstance);
+        meta.site = undefined;
+        meta.hr = undefined;
+      }
+
+      const prevX = (controlNode as any).position?.x ?? 0;
+      const prevY = (controlNode as any).position?.y ?? 0;
+      const toRemove = graph.connections.filter(
+        (c: any) => c.from?.nodeId === controlNode.id || c.to?.nodeId === controlNode.id
+      );
+      toRemove.forEach((c: any) => graph.removeConnection(c));
+      graph.removeNode(controlNode);
+      const set = spawnedProcessChildren.get(node.id);
+      if (set) set.delete(controlNode.id);
+      const nextNode = createControlNode(next);
+      if (nextNode) {
+        setNodePosition(nextNode, prevX, prevY);
+        const nextOutput = Object.values(nextNode.outputs)[0];
+        if (controlPort && nextOutput) graph.addConnection(nextOutput, controlPort);
+        trackSpawnedChild(node.id, nextNode.id);
+      }
+      nextTick(() => scheduleLayoutRefresh());
+    };
+
+    return controlNode;
+  };
+
+  const controlTitle = `${meta.kind === "site" ? "Site" : meta.kind === "hr" ? "Hr" : "Machine"} ${index + 1}`;
+  const controlPort = node.addInputPort(controlTitle, isPortraitLayout() ? "right" : "bottom");
+  const controlNode = createControlNode(meta.kind);
+  const controlOutput = controlNode ? Object.values(controlNode.outputs)[0] : undefined;
+  if (controlPort && controlOutput) graph.addConnection(controlOutput, controlPort);
+
+  const baseX = (node as any).position?.x ?? 0;
+  const baseY = (node as any).position?.y ?? 0;
+  const processSize = getNodeSizeForLayout(node);
+  const controlSize = controlNode ? getNodeSizeForLayout(controlNode) : { width: 440, height: 260 };
+  const rowGap = 24;
+  const offsetX = index * (controlSize.width + rowGap);
+  const offsetY = processSize.height + 40;
+  if (controlNode) {
+    setNodePosition(controlNode, baseX + offsetX, baseY + offsetY);
+    trackSpawnedChild(node.id, controlNode.id);
+  }
+
+  nextTick(() => scheduleLayoutRefresh());
+};
+
+const deleteSpawnedResourceNode = (node: ResourceNode) => {
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+  const meta = (node as any).__tmMeta as { parentId?: string } | undefined;
+  if (meta?.parentId) {
+    const set = spawnedProcessChildren.get(meta.parentId);
+    if (set) set.delete(node.id);
+  }
   const toRemove = graph.connections.filter(
     (c: any) => c.from?.nodeId === node.id || c.to?.nodeId === node.id
   );
@@ -1222,9 +1409,21 @@ watch(
                 <Idef0Node
                   :node="node"
                   :on-add-input="addInputInstance"
-                  :on-add-output="addOutputInstance"
-                  :on-add-mechanism="addControlNode"
-                  :on-delete="spawnedProcessNodes.has(node.id) ? () => deleteSpawnedProcess(node as any) : undefined"
+                  :on-add-output="
+                    (node as any).__tmSpawned || spawnedProcessNodes.has(node.id)
+                      ? () => addOutputInstanceForProcessNode(node as ProcessNode)
+                      : addOutputInstance
+                  "
+                  :on-add-mechanism="
+                    (node as any).__tmSpawned || spawnedProcessNodes.has(node.id)
+                      ? () => addControlNodeForProcessNode(node as ProcessNode)
+                      : addControlNode
+                  "
+                  :on-delete="
+                    (node as any).__tmSpawned || spawnedProcessNodes.has(node.id)
+                      ? () => deleteSpawnedProcess(node as any)
+                      : undefined
+                  "
                 />
               </div>
             </template>
@@ -1250,7 +1449,9 @@ watch(
                   :on-delete="
                     (node as any).__tmMeta?.kind === 'output-root'
                       ? undefined
-                      : () => deleteResourceNode(node as ResourceNode)
+                      : String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
+                        ? () => deleteSpawnedResourceNode(node as ResourceNode)
+                        : () => deleteResourceNode(node as ResourceNode)
                   "
                   :on-output-connector="(intf) => addProcessFromOutputConnector(node as ResourceNode, intf)"
                 />
