@@ -466,21 +466,47 @@ const isSpawnedProcess = (node: any) =>
 /** Bumped whenever spawned connections change so template expressions re-evaluate. */
 const spawnedConnectionVer = ref(0);
 
-/** Check if a central node has any spawned process connected to it.
- *  Reads `spawnedConnectionVer` so Vue re-renders when it changes. */
+/** True when a spawned process is connected INTO this node's left input ports.
+ *  Used to hide the left-side "+" badge (one process per input). */
+const nodeHasLeftSpawnedProcess = (node: any): boolean => {
+  void spawnedConnectionVer.value; // reactive dependency
+  const graph = baklava.displayedGraph as any;
+  if (!graph?.connections) return false;
+  /* Collect IDs of this node's input (left) ports */
+  const inputPortIds = new Set<string>();
+  if (node.inputs) {
+    Object.values(node.inputs).forEach((intf: any) => {
+      if (intf?.id) inputPortIds.add(intf.id);
+    });
+  }
+  if (inputPortIds.size === 0) return false;
+  /* Check if any connection targets one of these input ports from a spawned node */
+  return graph.connections.some((c: any) => {
+    if (!inputPortIds.has(c.to?.id)) return false;
+    const fromNode = graph.nodes.find((n: any) => n.id === c.from?.nodeId);
+    return fromNode && isSpawnedProcessNode(fromNode);
+  });
+};
+
+/** True when this central node has ANY spawned process or spawned resource
+ *  connected to it (used to hide X delete button). */
 const nodeHasSpawnedConnection = (node: any): boolean => {
   void spawnedConnectionVer.value; // reactive dependency
   const graph = baklava.displayedGraph as any;
   if (!graph?.connections) return false;
   const nodeId = node.id;
   return graph.connections.some((c: any) => {
-    const otherId =
-      c.from?.nodeId === nodeId ? c.to?.nodeId :
-      c.to?.nodeId === nodeId ? c.from?.nodeId :
-      null;
-    if (!otherId) return false;
-    const otherNode = graph.nodes.find((n: any) => n.id === otherId);
-    return otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
+    const fromNodeId = c.from?.nodeId;
+    const toNodeId = c.to?.nodeId;
+    if (fromNodeId === nodeId) {
+      const otherNode = graph.nodes.find((n: any) => n.id === toNodeId);
+      return otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
+    }
+    if (toNodeId === nodeId) {
+      const otherNode = graph.nodes.find((n: any) => n.id === fromNodeId);
+      return otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
+    }
+    return false;
   });
 };
 
@@ -2003,14 +2029,14 @@ watch(
                   :on-delete="
                     (node as any).__tmMeta?.kind === 'output-root'
                       ? undefined
-                      : nodeHasSpawnedConnection(node)
+                      : nodeHasSpawnedConnection(node) && !String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
                         ? undefined
                         : String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
                           ? () => deleteSpawnedResourceNode(node as ResourceNode)
                           : () => deleteResourceNode(node as ResourceNode)
                   "
                   :on-output-connector="(intf) => addProcessFromOutputConnector(node as ResourceNode, intf)"
-                  :on-input-connector="nodeHasSpawnedConnection(node) ? undefined : (intf) => addProcessFromInputConnector(node as ResourceNode, intf)"
+                  :on-input-connector="nodeHasLeftSpawnedProcess(node) ? undefined : (intf) => addProcessFromInputConnector(node as ResourceNode, intf)"
                 />
               </div>
             </template>
