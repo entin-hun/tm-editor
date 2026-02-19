@@ -450,6 +450,31 @@ const isSpawnedResourceNode = (node: any) => {
   return typeof meta?.kind === "string" && meta.kind.startsWith("spawned-");
 };
 
+const isSpawnedProcess = (node: any) =>
+  Boolean((node as any).__tmSpawned) || spawnedProcessNodes.has((node as any).id);
+
+const handleAddOutputForNode = (node: any) => {
+  if (isSpawnedProcess(node)) {
+    addOutputInstanceForProcessNode(node as ProcessNode);
+    return;
+  }
+  addOutputInstance();
+};
+
+const handleAddMechanismForNode = (node: any) => {
+  if (isSpawnedProcess(node)) {
+    addControlNodeForProcessNode(node as ProcessNode);
+    return;
+  }
+  addControlNode();
+};
+
+const handleDeleteForNode = (node: any) => {
+  if (isSpawnedProcess(node)) {
+    deleteSpawnedProcess(node);
+  }
+};
+
 const clearGraph = () => {
   const graph = baklava.displayedGraph as any;
   if (!graph?.removeNode) return;
@@ -1460,12 +1485,6 @@ watch(
 
 <template>
   <div class="flow-editor-root" ref="rootEl">
-    <div
-      class="flow-editor-debug-badge"
-      style="position: absolute; top: 8px; left: 8px; z-index: 5; font-size: 12px; padding: 4px 8px; border-radius: 999px; background: #ffb74d; color: #101418; font-weight: 700;"
-    >
-      FlowEditor v2
-    </div>
     <BaklavaEditor :view-model="baklava">
       <template #node="{ node, selected, dragging, onStartDrag, onSelect }">
         <template v-if="node.type && (node.type.includes('Subgraph') || node.type.includes('__baklava'))">
@@ -1489,21 +1508,9 @@ watch(
                 <Idef0Node
                   :node="node"
                   :on-add-input="addInputInstance"
-                  :on-add-output="
-                    (node as any).__tmSpawned || spawnedProcessNodes.has(node.id)
-                      ? () => addOutputInstanceForProcessNode(node as ProcessNode)
-                      : addOutputInstance
-                  "
-                  :on-add-mechanism="
-                    (node as any).__tmSpawned || spawnedProcessNodes.has(node.id)
-                      ? () => addControlNodeForProcessNode(node as ProcessNode)
-                      : addControlNode
-                  "
-                  :on-delete="
-                    (node as any).__tmSpawned || spawnedProcessNodes.has(node.id)
-                      ? () => deleteSpawnedProcess(node as any)
-                      : undefined
-                  "
+                  :on-add-output="() => handleAddOutputForNode(node)"
+                  :on-add-mechanism="() => handleAddMechanismForNode(node)"
+                  :on-delete="isSpawnedProcess(node) ? () => handleDeleteForNode(node) : undefined"
                 />
               </div>
             </template>
