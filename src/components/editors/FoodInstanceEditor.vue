@@ -161,12 +161,11 @@ watch(processType, (newValue) => {
           processTypeFactory[newValue] || (defaultGenericProcess as Process)
         );
 
-  // If the process type wasn't in the factory (e.g. from AI), explicitly set the type name
+  // If the process type wasn't in the factory (e.g., from AI), explicitly set the type
   // because the fallback 'defaultGenericProcess' won't have the specific type.
   if (value.value.process && newValue && !processTypeFactory[newValue]) {
     const process = value.value.process as Process & { name?: string };
     process.type = newValue;
-    process.name = newValue;
   }
 });
 

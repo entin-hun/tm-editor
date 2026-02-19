@@ -495,29 +495,19 @@ const nodeHasSpawnedConnection = (node: any): boolean => {
   const graph = baklava.displayedGraph as any;
   if (!graph?.connections) return false;
   const nodeId = node.id;
-  const hasSpawned = graph.connections.some((c: any) => {
+  return graph.connections.some((c: any) => {
     const fromNodeId = c.from?.nodeId;
     const toNodeId = c.to?.nodeId;
     if (fromNodeId === nodeId) {
       const otherNode = graph.nodes.find((n: any) => n.id === toNodeId);
-      const isSpawned = otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
-      if (isSpawned) {
-        console.log('nodeHasSpawnedConnection: node', nodeId, 'connected TO spawned node', toNodeId, otherNode?.__tmMeta);
-      }
-      return isSpawned;
+      return otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
     }
     if (toNodeId === nodeId) {
       const otherNode = graph.nodes.find((n: any) => n.id === fromNodeId);
-      const isSpawned = otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
-      if (isSpawned) {
-        console.log('nodeHasSpawnedConnection: node', nodeId, 'connected FROM spawned node', fromNodeId, otherNode?.__tmMeta);
-      }
-      return isSpawned;
+      return otherNode && (isSpawnedProcessNode(otherNode) || isSpawnedResourceNode(otherNode));
     }
     return false;
   });
-  console.log('nodeHasSpawnedConnection result for', nodeId, (node as any).__tmMeta?.kind, ':', hasSpawned);
-  return hasSpawned;
 };
 
 const handleAddOutputForNode = (node: any) => {
