@@ -1271,6 +1271,58 @@ const autoArrangeNodes = () => {
       setNodePosition(n, pos.x, pos.y);
     }
   });
+
+  /* After restoring spawned positions, push central nodes that now overlap
+     with spawned nodes so they don't stack on top of each other. */
+  if (savedSpawnedPositions.size > 0) {
+    const spacing = 24;
+    const movable = nodes.filter(
+      (n: any) => !isSpawnedProcessNode(n) && !isSpawnedResourceNode(n)
+    );
+    const spawned = nodes.filter(
+      (n: any) => isSpawnedProcessNode(n) || isSpawnedResourceNode(n)
+    );
+
+    const getRect = (node: any) => {
+      const el = document.getElementById((node as any).id);
+      const scale = graph.scaling || 1;
+      const fallback = { width: 440, height: 260 };
+      const sz = el
+        ? { width: el.getBoundingClientRect().width / scale, height: el.getBoundingClientRect().height / scale }
+        : fallback;
+      return {
+        left: node.position.x,
+        top: node.position.y,
+        right: node.position.x + sz.width,
+        bottom: node.position.y + sz.height,
+      };
+    };
+
+    for (let pass = 0; pass < 6; pass += 1) {
+      let changed = false;
+      for (const cNode of movable) {
+        if ((cNode as any).type === "ProcessNode") continue;
+        const cr = getRect(cNode);
+        for (const sNode of spawned) {
+          const sr = getRect(sNode);
+          const overlapX = Math.min(cr.right, sr.right) - Math.max(cr.left, sr.left);
+          const overlapY = Math.min(cr.bottom, sr.bottom) - Math.max(cr.top, sr.top);
+          if (overlapX <= 0 || overlapY <= 0) continue;
+
+          /* Push the central node away from the spawned node along the
+             shorter overlap axis, biasing by which side the central node sits on. */
+          const shiftY = overlapY + spacing;
+          const midC = (cr.top + cr.bottom) / 2;
+          const midS = (sr.top + sr.bottom) / 2;
+          const dir = midC >= midS ? 1 : -1;
+          setNodePosition(cNode as any, (cNode as any).position.x, (cNode as any).position.y + dir * shiftY);
+          (cNode as any).position.y += dir * shiftY;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+  }
 };
 
 const addInputInstance = () => {
