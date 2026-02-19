@@ -263,7 +263,8 @@ type NodeMeta =
   | { kind: "knowhow" }
   | { kind: "impact" }
   | { kind: "spawned-output"; parentId: string; index: number }
-  | { kind: "spawned-control"; parentId: string; index: number };
+  | { kind: "spawned-control"; parentId: string; index: number }
+  | { kind: "spawned-input"; parentId: string; index: number };
 
 const ensureProcessWithInputs = (): ProcessShape | null => {
   const inst = value.value.instance as unknown as { process?: ProcessShape } | undefined;
@@ -459,6 +460,14 @@ const handleAddOutputForNode = (node: any) => {
     return;
   }
   addOutputInstance();
+};
+
+const handleAddInputForNode = (node: any) => {
+  if (isSpawnedProcess(node)) {
+    addInputInstanceForProcessNode(node as ProcessNode);
+    return;
+  }
+  addInputInstance();
 };
 
 const handleAddMechanismForNode = (node: any) => {
@@ -1149,6 +1158,47 @@ const addInputInstance = () => {
   buildGraphFromModel();
 };
 
+/** Add an input ResourceNode to a spawned process (positioned to the left). */
+const addInputInstanceForProcessNode = (node: ProcessNode) => {
+  const graph = baklava.displayedGraph;
+  if (!graph) return;
+  const process = (node as any).process as ProcessShape | undefined;
+  if (!process) return;
+  process.inputInstances = process.inputInstances || [];
+  const nextInput = clone(defaultLocalInputInstance);
+  process.inputInstances.push(nextInput);
+  const nextIndex = process.inputInstances.length;
+
+  const inputNode = graph.addNode(new ResourceNode("input"));
+  if (!inputNode) return;
+  (inputNode as any).__tmMeta = { kind: "spawned-input", parentId: node.id, index: nextIndex - 1 } as NodeMeta;
+  (inputNode as any).inputInstance = nextInput;
+  (inputNode as any).onInputUpdate = (next: InputInstance) => {
+    process.inputInstances.splice(nextIndex - 1, 1, next);
+  };
+  (inputNode as any).onTitleUpdate = (title: string) => {
+    inputNode.title = title;
+  };
+  inputNode.title = inputLabel(nextInput, nextIndex - 1);
+
+  const isPortrait = isPortraitLayout();
+  const inputPort = node.addInputPort(`Input ${nextIndex}`, isPortrait ? "top" : "left");
+  const inputOutput = Object.values(inputNode.outputs)[0];
+  if (inputOutput && inputPort) graph.addConnection(inputOutput, inputPort);
+
+  /* Position to the LEFT of the spawned process, stacking downward */
+  const baseX = (node as any).position?.x ?? 0;
+  const baseY = (node as any).position?.y ?? 0;
+  const inputSize = getNodeSizeForLayout(inputNode);
+  const colGap = 24;
+  const offsetX = -(inputSize.width + 120);
+  const offsetY = (nextIndex - 1) * (inputSize.height + colGap);
+  placeNodeAvoidingOverlap(graph, inputNode, baseX + offsetX, baseY + offsetY, "y", [node.id]);
+  trackSpawnedChild(node.id, inputNode.id);
+
+  nextTick(() => refreshConnectionCoords());
+};
+
 const addOutputInstance = () => {
   const process = ensureProcessWithInputs();
   if (!process) return;
@@ -1606,7 +1656,7 @@ watch(
               >
                 <Idef0Node
                   :node="node"
-                  :on-add-input="addInputInstance"
+                  :on-add-input="() => handleAddInputForNode(node)"
                   :on-add-output="() => handleAddOutputForNode(node)"
                   :on-add-mechanism="() => handleAddMechanismForNode(node)"
                   :on-delete="isSpawnedProcess(node) ? () => handleDeleteForNode(node) : undefined"
