@@ -510,6 +510,15 @@ const nodeHasSpawnedConnection = (node: any): boolean => {
   });
 };
 
+/** True when this spawned node has ANY input connections from other nodes. */
+const spawnedNodeHasInputs = (node: any): boolean => {
+  void spawnedConnectionVer.value; // reactive dependency
+  const graph = baklava.displayedGraph as any;
+  if (!graph?.connections) return false;
+  const nodeId = node.id;
+  return graph.connections.some((c: any) => c.to?.nodeId === nodeId);
+};
+
 const handleAddOutputForNode = (node: any) => {
   if (isSpawnedProcess(node)) {
     addOutputInstanceForProcessNode(node as ProcessNode);
@@ -641,6 +650,10 @@ const buildGraphFromModel = () => {
     if (!target) return;
     Object.assign(target, next);
   };
+  /* Clear process name if it equals the type (prevents "blending" from showing as label) */
+  if (process.name && process.type && String(process.name).toLowerCase() === String(process.type).toLowerCase()) {
+    delete (process as any).name;
+  }
 
   const outputInstance = value.value.instance as ProductInstance | PricedProduct | undefined;
   const outputNode = graph.addNode(new ResourceNode("output"));
@@ -1634,6 +1647,10 @@ const addProcessFromOutputConnector = (node: ResourceNode, intf: NodeInterface<u
   (nextProcess as any).onProcessUpdate = (next: ProcessShape) => {
     Object.assign(newProcessData, next);
   };
+  /* Clear process name if it equals the type */
+  if (newProcessData.name && newProcessData.type && String(newProcessData.name).toLowerCase() === String(newProcessData.type).toLowerCase()) {
+    delete (newProcessData as any).name;
+  }
   nextProcess.title = "Process";
 
   const isPortrait = isPortraitLayout();
@@ -2003,7 +2020,7 @@ watch(
                   :on-add-input="() => handleAddInputForNode(node)"
                   :on-add-output="() => handleAddOutputForNode(node)"
                   :on-add-mechanism="() => handleAddMechanismForNode(node)"
-                  :on-delete="isSpawnedProcess(node) && !nodeHasSpawnedConnection(node) ? () => handleDeleteForNode(node) : undefined"
+                  :on-delete="isSpawnedProcess(node) && !spawnedNodeHasInputs(node) ? () => handleDeleteForNode(node) : undefined"
                 />
               </div>
             </template>
@@ -2031,9 +2048,11 @@ watch(
                       ? undefined
                       : nodeHasSpawnedConnection(node) && !String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
                         ? undefined
-                        : String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
-                          ? () => deleteSpawnedResourceNode(node as ResourceNode)
-                          : () => deleteResourceNode(node as ResourceNode)
+                        : String((node as any).__tmMeta?.kind || '').startsWith('spawned-') && spawnedNodeHasInputs(node)
+                          ? undefined
+                          : String((node as any).__tmMeta?.kind || '').startsWith('spawned-')
+                            ? () => deleteSpawnedResourceNode(node as ResourceNode)
+                            : () => deleteResourceNode(node as ResourceNode)
                   "
                   :on-output-connector="(intf) => addProcessFromOutputConnector(node as ResourceNode, intf)"
                   :on-input-connector="nodeHasLeftSpawnedProcess(node) ? undefined : (intf) => addProcessFromInputConnector(node as ResourceNode, intf)"
