@@ -138,7 +138,7 @@ const props = defineProps<{ tokenId: bigint; listingId: bigint }>();
 
 defineEmits(useDialogPluginComponent.emits);
 
-const { dialogRef, onDialogHide } = useDialogPluginComponent();
+const { dialogRef, onDialogHide, onDialogOk } = useDialogPluginComponent();
 const needsNetworkSwitch = ref(false);
 const targetChainHex = computed(
   () => `0x${accountStore.chain.id.toString(16)}`
@@ -352,6 +352,7 @@ const revokeTx = useAsyncState<Hex | undefined>(
       account: accountStore.account,
     });
     await result.wait();
+    onDialogOk();
     return result.transactionHash;
   },
   undefined,
