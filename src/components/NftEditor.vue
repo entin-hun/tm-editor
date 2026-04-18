@@ -570,84 +570,61 @@ function onLoadEntry(entry: any) {
 }
 
 async function saveToSwarmFeed(target: string, payload: any) {
-  if (!accountStore.account) {
-    throw new Error('Wallet not connected');
-  }
-  if (!swarmApiUrl || !swarmBatchId) {
+  if (!accountStore.account) throw new Error('Wallet not connected');
+  if (!swarmApiUrl || !swarmBatchId)
     throw new Error('Swarm config missing (SWARM_API_URL or SWARM_BATCH).');
-  }
 
   const bee = new Bee(swarmApiUrl);
   const signer = await getSwarmSigner();
-  const ownerHex = accountStore.account?.address as string;
-  const topicName = `tm-editor-${target}`; // Dynamic topic based on target
+  const ownerHex = accountStore.account.address as string;
+  const topicName = `tm-editor-${target}`;
   const topic = bee.makeFeedTopic(topicName);
   const feedType = 'sequence' as const;
 
+  const reader = bee.makeFeedReader(feedType, topic, ownerHex);
   const writer = bee.makeFeedWriter(feedType, topic, signer);
-  const manifestKey = feedManifestCacheKey(ownerHex, topicName);
-  let manifestReference = window.localStorage.getItem(manifestKey) || '';
 
-  let existingArray: unknown = [];
-  if (manifestReference) {
-    try {
-      const downloaded = await bee.downloadData(manifestReference);
-      const text = new TextDecoder().decode(downloaded);
-      existingArray = JSON.parse(text);
-    } catch (error) {
-      console.warn('[Swarm] Failed to read existing feed data', error);
-    }
-  }
-
-  // Ensure payload is prudent
-  const cleanPayload = pruneJson(payload) ?? {};
-
-  // Reuse upsert logic, but we need to ensure upsertFeedArray uses 'target' correctly.
-  // The upsertFeedArray function uses 'selectedTarget.value'.
-  // We should pass target explicitly to upsertFeedArray or modify it.
-  const nextArray = await upsertFeedArray(existingArray, cleanPayload, target);
-
-  const upload = await bee.uploadData(swarmBatchId, JSON.stringify(nextArray));
-
-  // Determine the correct feed index before writing.
-  // bee-js v7 FeedWriter.upload() throws (rather than defaulting to 0) when the
-  // feed doesn't exist yet.  We pre-read the feed to find the current index and
-  // pass it explicitly as a Bytes<8> Uint8Array so first-time saves always work.
-  let feedIndex: Uint8Array;
+  // Read the current feed to get the next SOC index and existing array.
+  // feedIndexNext is the 16-char hex string for the next SOC to write.
+  // On first save (feed doesn't exist) the reader.download() throws → start at 0.
+  let nextIndexHex = '0000000000000000';
+  let existingArray: unknown[] = [];
   try {
-    const reader = bee.makeFeedReader(feedType, topic, ownerHex);
     const current = await reader.download();
-    // feedIndex from bee-js is a 16-char hex string representing a uint64
-    const currentIdxHex =
-      (current as any).feedIndex ?? '0000000000000000';
-    const nextIdx = BigInt('0x' + currentIdxHex) + 1n;
-    feedIndex = new Uint8Array(8);
-    let n = nextIdx;
-    for (let i = 7; i >= 0; i--) {
-      feedIndex[i] = Number(n & 0xffn);
-      n >>= 8n;
+    nextIndexHex = (current as any).feedIndexNext || '0000000000000000';
+    if (current.reference) {
+      try {
+        const data = await bee.downloadData(current.reference as any);
+        existingArray = JSON.parse(new TextDecoder().decode(data));
+      } catch {
+        console.warn('[Swarm] Could not parse existing feed content');
+      }
     }
   } catch {
-    // Feed doesn't exist yet – start at index 0 (all-zero 8 bytes)
-    feedIndex = new Uint8Array(8);
+    // Feed does not exist yet – first save, index stays at 0.
   }
 
+  const socIndex = BigInt('0x' + nextIndexHex);
+  const cleanPayload = pruneJson(payload) ?? {};
+  const nextArray = await upsertFeedArray(
+    existingArray,
+    cleanPayload,
+    target,
+    socIndex
+  );
+
+  // Upload the new JSON blob; the returned reference is the SOC payload.
+  const upload = await bee.uploadData(
+    swarmBatchId,
+    JSON.stringify(nextArray)
+  );
+
+  // Write a versioned SOC at the explicit next index.
   await writer.upload(swarmBatchId, upload.reference, {
-    index: feedIndex as any,
+    index: nextIndexHex as any,
   });
 
-  if (!manifestReference) {
-    const manifest = await bee.createFeedManifest(
-      swarmBatchId,
-      feedType,
-      topic,
-      ownerHex
-    );
-    manifestReference = manifest.reference;
-    window.localStorage.setItem(manifestKey, manifestReference);
-  }
-
-  return manifestReference;
+  return { topic: topicName, socIndex: socIndex.toString() };
 }
 
 // Maps tm-editor target to DAO RegistryCategory (REGISTRY.md)
@@ -659,11 +636,11 @@ function targetToRegistryCategory(
   return 'products'; // 'instance' = food/non-food process output
 }
 
-// Updated signature to accept target
 async function upsertFeedArray(
   existing: unknown,
   payload: any,
-  targetOverride?: string
+  targetOverride?: string,
+  socIndex?: bigint
 ) {
   const currentTarget = targetOverride || selectedTarget.value;
   const list = Array.isArray(existing) ? [...existing] : [];
@@ -674,7 +651,6 @@ async function upsertFeedArray(
   const existingEntry = index >= 0 ? list[index] : null;
   const nowMs = Date.now();
   const entry = {
-    // Existing fields (kept for backward compatibility)
     key,
     target: currentTarget,
     updatedAt: new Date(nowMs).toISOString(),
@@ -688,6 +664,8 @@ async function upsertFeedArray(
     tags: Array.isArray(payload.tags) ? payload.tags : [],
     createdAtMs: existingEntry?.createdAtMs ?? nowMs,
     updatedAtMs: nowMs,
+    // SOC version counter – which Swarm feed index this entry was last written at
+    ...(socIndex !== undefined ? { socIndex: socIndex.toString() } : {}),
   };
   if (index >= 0) {
     list[index] = { ...list[index], ...entry };
@@ -1511,8 +1489,6 @@ const walletOptions = [
 
 const swarmApiUrl = process.env.SWARM_API_URL;
 const swarmBatchId = process.env.SWARM_BATCH;
-const feedManifestCacheKey = (owner: string, topic: string) =>
-  `swarm:feed:${owner}:${topic}`;
 
 const walletDisconnect = useAsyncState(
   () => {
