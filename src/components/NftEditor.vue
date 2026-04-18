@@ -270,7 +270,7 @@
             @click="handleTabToggle('flow')"
           />
           <q-tab
-            v-if="selectedTarget === 'instance'"
+            v-if="selectedTarget === 'instance' || selectedTarget === 'knowHow'"
             name="lines"
             icon="schema"
             label="Lines"
@@ -614,10 +614,7 @@ async function saveToSwarmFeed(target: string, payload: any) {
   );
 
   // Upload the new JSON blob; the returned reference is the SOC payload.
-  const upload = await bee.uploadData(
-    swarmBatchId,
-    JSON.stringify(nextArray)
-  );
+  const upload = await bee.uploadData(swarmBatchId, JSON.stringify(nextArray));
 
   // Write a versioned SOC at the explicit next index.
   await writer.upload(swarmBatchId, upload.reference, {
