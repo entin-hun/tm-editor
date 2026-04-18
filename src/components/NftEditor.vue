@@ -1263,7 +1263,7 @@ watch(
       next !== 'instance' &&
       (rightTab.value === 'flow' ||
         rightTab.value === 'eco' ||
-        rightTab.value === 'lines')
+        (rightTab.value === 'lines' && next !== 'knowHow'))
     ) {
       rightTab.value = 'json';
     }

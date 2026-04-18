@@ -252,13 +252,9 @@
               Schema.
             </div>
 
-            <!-- Lines tab: inline FlowEditor scoped to knowHow -->
+            <!-- Lines tab: FlowEditor scoped to knowHow -->
             <div v-if="knowHowTab === 'lines'" class="know-how-lines">
-              <KnowHowEditor
-                v-model="knowHowDraft"
-                label="know-how"
-                :show-reference-hash="false"
-              />
+              <FlowEditor v-model="knowHowPokedex" />
             </div>
 
             <!-- Schema tab: AJV validation panel -->
@@ -345,17 +341,19 @@ import { ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { Bee } from '@ethersphere/bee-js';
-import { KnowHow, MachineInstance, Site } from '@trace.market/types';
+import { KnowHow, MachineInstance, Site, Pokedex } from '@trace.market/types';
 import { useAccountStore } from 'src/stores/account';
 import SiteEditor from 'src/components/editors/SiteEditor.vue';
 import MachineInstanceEditor from 'src/components/editors/MachineInstanceEditor.vue';
 import KnowHowEditor from 'src/components/editors/KnowHowEditor.vue';
 import KnowHowSchemaPanel from 'src/components/KnowHowSchemaPanel.vue';
+import FlowEditor from 'src/flow-editor/FlowEditor.vue';
 import {
   clone,
   defaultKnowHow,
   defaultSite,
   defaultMachineInstance,
+  defaultPokedex,
 } from 'src/components/editors/defaults';
 
 const router = useRouter();
@@ -369,6 +367,25 @@ const swarmBatchId = process.env.SWARM_BATCH as string | undefined;
 const locationDraft = ref<Site>(clone(defaultSite));
 const machineDraft = ref<MachineInstance>(clone(defaultMachineInstance));
 const knowHowDraft = ref<KnowHow>(clone(defaultKnowHow));
+const knowHowPokedex = computed<Pokedex>({
+  get: () => {
+    const base = clone(defaultPokedex);
+    (base.instance as any).process = {
+      type: 'process',
+      category: 'process',
+      inputInstances: [],
+      knowHow: knowHowDraft.value,
+    };
+    return base;
+  },
+  set: (val: Pokedex) => {
+    const process = (val?.instance as any)?.process;
+    if (process?.knowHow) {
+      knowHowDraft.value = process.knowHow;
+    }
+  },
+});
+
 const knowHowTab = ref<'lines' | 'schema'>('lines');
 
 const locationSaving = ref(false);
@@ -560,8 +577,11 @@ async function locationAction(action: 'save' | 'load' | 'reset' | 'delete') {
   locationSaving.value = true;
   try {
     const existing = await readFeed('tm-editor-location');
-    const key = locationDraft.value.label ||
-      `${locationDraft.value.location?.coordinates?.[0] ?? 0},${locationDraft.value.location?.coordinates?.[1] ?? 0}`;
+    const key =
+      locationDraft.value.label ||
+      `${locationDraft.value.location?.coordinates?.[0] ?? 0},${
+        locationDraft.value.location?.coordinates?.[1] ?? 0
+      }`;
     const next = await upsertEntry(existing, locationDraft.value, key);
     await writeFeed('tm-editor-location', next);
     locationDirty.value = false;
@@ -689,7 +709,12 @@ async function deleteFeedEntry(entry: any) {
   align-items: center;
   padding-bottom: 4px;
 }
-.know-how-lines,
+.know-how-lines {
+  height: 520px;
+  min-height: 520px;
+  position: relative;
+  overflow: hidden;
+}
 .know-how-schema {
   min-height: 120px;
 }

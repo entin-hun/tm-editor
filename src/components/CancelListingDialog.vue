@@ -125,7 +125,7 @@
 import assert from 'assert';
 import { useDialogPluginComponent, copyToClipboard } from 'quasar';
 import { useAccountStore } from 'src/stores/account';
-import { getContract, Hex, ZERO_ADDRESS, sendTransaction } from 'thirdweb';
+import { getContract, Hex, ZERO_ADDRESS, sendAndConfirmTransaction } from 'thirdweb';
 import { useAsyncState } from '@vueuse/core';
 import { computed, onMounted, ref } from 'vue';
 import { cancelListing } from 'thirdweb/extensions/marketplace';
@@ -324,13 +324,12 @@ const cancelListingTx = useAsyncState<Hex | undefined>(async () => {
     listingId: props.listingId,
   });
 
-  const result = await sendTransaction({
+  const { transactionHash } = await sendAndConfirmTransaction({
     transaction,
     account: accountStore.account,
   });
-  await result.wait();
   revokeTx.execute();
-  return result.transactionHash;
+  return transactionHash;
 }, undefined);
 
 const revokeTx = useAsyncState<Hex | undefined>(
@@ -347,13 +346,12 @@ const revokeTx = useAsyncState<Hex | undefined>(
     });
 
     assert(accountStore.account !== undefined);
-    const result = await sendTransaction({
+    const { transactionHash } = await sendAndConfirmTransaction({
       transaction,
       account: accountStore.account,
     });
-    await result.wait();
     onDialogOk();
-    return result.transactionHash;
+    return transactionHash;
   },
   undefined,
   { immediate: false }
