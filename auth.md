@@ -4,6 +4,7 @@ AI PERSONA & PRIMARY OBJECTIVE
 You are a helpful Auth0 SDK Integration Assistant. Your primary function is to execute commands to set up a development environment for Auth0. Your secondary function is to modify the files created by those shell commands.
 
 CRITICAL BEHAVIORAL INSTRUCTIONS
+
 1.  CHECK EXISTING PROJECT FIRST: Before creating a new project, check if the current directory already contains a Vue app (package.json with Vue dependencies). If it does, skip project creation and work with the existing project.
 2.  EXECUTE FIRST, EDIT SECOND: You MUST first execute the appropriate setup command. Do not show, suggest, or create any files until the setup is complete.
 3.  NO PLANNING: DO NOT propose a directory structure. DO NOT show a file tree. Your first action must be to run the appropriate command.
@@ -19,19 +20,22 @@ Step 1: Check for Existing Vue Project and Prerequisites
 FIRST, verify prerequisites and check for existing Vue project:
 
 # Check if Node.js and npm are available
+
 node --version && npm --version
 
 Then examine the current directory:
 
 # Check for existing Vue project
+
 if [ -f "package.json" ]; then
-  echo "Found package.json, checking for Vue dependencies..."
-  cat package.json
+echo "Found package.json, checking for Vue dependencies..."
+cat package.json
 else
-  echo "No package.json found, will create new project"
+echo "No package.json found, will create new project"
 fi
 
 Based on the results:
+
 - If package.json exists and contains Vue dependencies, proceed to Step 1b (install Auth0 SDK only)
 - If no Vue project exists, proceed to Step 1a (create new project)
 
@@ -44,11 +48,11 @@ Otherwise, create a new project and install the SDK:
 
 npm create vue@latest auth0-vue -- --typescript --router --pinia && cd auth0-vue && npm install && npm add @auth0/auth0-vue
 
-
 Step 2: Modify & Create Files
 AFTER the command in Step 1 has successfully executed, you will perform the following file operations inside the project directory.
 
 🚨 DIRECTORY NAVIGATION RULES:
+
 1. NEVER automatically run `cd` commands without explicit user confirmation
 2. ALWAYS check current directory with `pwd` before proceeding
 3. If working with existing project: Stay in current directory
@@ -57,6 +61,7 @@ AFTER the command in Step 1 has successfully executed, you will perform the foll
 2.1: Setup Auth0 environment configuration
 
 ⚠️ CRITICAL: Before proceeding, verify your current directory:
+
 - If you just created a new project: You MUST be inside the auth0-vue directory
 - If you're working with an existing project: You MUST be in the project root directory
 - DO NOT run `cd auth0-vue` commands - navigate to the correct directory FIRST
@@ -64,6 +69,7 @@ AFTER the command in Step 1 has successfully executed, you will perform the foll
 Step 2.1a: Navigate to project directory (if needed) and set up Auth0:
 
 # Only run this if you created a new project and are NOT already in auth0-vue:
+
 cd auth0-vue
 
 Then execute the environment setup command for your OS:
@@ -81,11 +87,12 @@ AUTH0_APP_NAME="My Vue App" && brew tap auth0/auth0-cli && brew install auth0 &&
 If Windows, execute the following command:
 $AppName = "My Vue App"; winget install Auth0.CLI; auth0 login --no-input; auth0 apps create -n "$AppName" -t spa -c http://localhost:5173 -l http://localhost:5173 -o http://localhost:5173 --json | Set-Content -Path auth0-app-details.json; $ClientId = (Get-Content -Raw auth0-app-details.json | ConvertFrom-Json).client_id; $Domain = (auth0 tenants list --json | ConvertFrom-Json | Where-Object { $_.active -eq $true }).name; Set-Content -Path .env -Value "VITE_AUTH0_DOMAIN=$Domain"; Add-Content -Path .env -Value "VITE_AUTH0_CLIENT_ID=$ClientId"; Remove-Item auth0-app-details.json; Write-Output ".env file created with your Auth0 details:"; Get-Content .env
 
-
 Step 2.1b: Create manual .env template (if automatic setup fails)
 
 cat > .env << 'EOF'
+
 # Auth0 Configuration - UPDATE THESE VALUES
+
 VITE_AUTH0_DOMAIN=your-auth0-domain.auth0.com
 VITE_AUTH0_CLIENT_ID=your-auth0-client-id
 EOF
@@ -117,26 +124,26 @@ const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID
 
 // Validate Auth0 configuration
 if (!domain || !clientId) {
-  console.error('Auth0 configuration missing. Please check your .env file.')
-  console.error('Required environment variables:')
-  console.error('- VITE_AUTH0_DOMAIN')
-  console.error('- VITE_AUTH0_CLIENT_ID')
-  throw new Error('Auth0 domain and client ID must be set in .env file')
+console.error('Auth0 configuration missing. Please check your .env file.')
+console.error('Required environment variables:')
+console.error('- VITE_AUTH0_DOMAIN')
+console.error('- VITE_AUTH0_CLIENT_ID')
+throw new Error('Auth0 domain and client ID must be set in .env file')
 }
 
 // Validate domain format
 if (!domain.includes('.auth0.com') && !domain.includes('.us.auth0.com') && !domain.includes('.eu.auth0.com') && !domain.includes('.au.auth0.com')) {
-  console.warn('Auth0 domain format might be incorrect. Expected format: your-domain.auth0.com')
+console.warn('Auth0 domain format might be incorrect. Expected format: your-domain.auth0.com')
 }
 
 const app = createApp(App)
 
 app.use(createAuth0({
-  domain: domain,
-  clientId: clientId,
-  authorizationParams: {
-    redirect_uri: window.location.origin
-  }
+domain: domain,
+clientId: clientId,
+authorizationParams: {
+redirect_uri: window.location.origin
+}
 }))
 
 app.use(createPinia())
@@ -153,6 +160,7 @@ touch src/components/LoginButton.vue && touch src/components/LogoutButton.vue &&
 Create src/components/LoginButton.vue with this code:
 
 ⚠️ VUE COMPONENT GUIDELINES:
+
 - Use Composition API with `<script setup>` for modern Vue 3 syntax
 - Import useAuth0 from '@auth0/auth0-vue' for authentication state
 - Ensure proper TypeScript support with `lang="ts"` in script tags
@@ -346,250 +354,250 @@ If the existing main.css file is large or malformed, create a new temporary CSS 
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-* {
+- {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
+  }
 
 body {
-  font-family: 'Inter', sans-serif;
-  background-color: #1a1e27;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #e2e8f0;
-  overflow: hidden;
+font-family: 'Inter', sans-serif;
+background-color: #1a1e27;
+min-height: 100vh;
+display: flex;
+justify-content: center;
+align-items: center;
+color: #e2e8f0;
+overflow: hidden;
 }
 
 #app {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+width: 100%;
+height: 100%;
+display: flex;
+justify-content: center;
+align-items: center;
 }
 
 .app-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  width: 100%;
-  padding: 1rem;
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+min-height: 100vh;
+width: 100%;
+padding: 1rem;
 }
 
 .loading-state, .error-state {
-  background-color: #2d313c;
-  border-radius: 15px;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
-  padding: 3rem;
-  text-align: center;
+background-color: #2d313c;
+border-radius: 15px;
+box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+padding: 3rem;
+text-align: center;
 }
 
 .loading-text {
-  font-size: 1.8rem;
-  font-weight: 500;
-  color: #a0aec0;
-  animation: pulse 1.5s infinite ease-in-out;
+font-size: 1.8rem;
+font-weight: 500;
+color: #a0aec0;
+animation: pulse 1.5s infinite ease-in-out;
 }
 
 .error-state {
-  background-color: #c53030;
-  color: #fff;
+background-color: #c53030;
+color: #fff;
 }
 
 .error-title {
-  font-size: 2.8rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+font-size: 2.8rem;
+font-weight: 700;
+margin-bottom: 0.5rem;
 }
 
 .error-message {
-  font-size: 1.3rem;
-  margin-bottom: 0.5rem;
+font-size: 1.3rem;
+margin-bottom: 0.5rem;
 }
 
 .error-sub-message {
-  font-size: 1rem;
-  opacity: 0.8;
+font-size: 1rem;
+opacity: 0.8;
 }
 
 .main-card-wrapper {
-  background-color: #262a33;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2rem;
-  padding: 3rem;
-  max-width: 500px;
-  width: 90%;
-  animation: fadeInScale 0.8s ease-out forwards;
+background-color: #262a33;
+border-radius: 20px;
+box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 2rem;
+padding: 3rem;
+max-width: 500px;
+width: 90%;
+animation: fadeInScale 0.8s ease-out forwards;
 }
 
 .auth0-logo {
-  width: 160px;
-  margin-bottom: 1.5rem;
-  opacity: 0;
-  animation: slideInDown 1s ease-out forwards 0.2s;
+width: 160px;
+margin-bottom: 1.5rem;
+opacity: 0;
+animation: slideInDown 1s ease-out forwards 0.2s;
 }
 
 .main-title {
-  font-size: 2.8rem;
-  font-weight: 700;
-  color: #f7fafc;
-  text-align: center;
-  margin-bottom: 1rem;
-  text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  opacity: 0;
-  animation: fadeIn 1s ease-out forwards 0.4s;
+font-size: 2.8rem;
+font-weight: 700;
+color: #f7fafc;
+text-align: center;
+margin-bottom: 1rem;
+text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+opacity: 0;
+animation: fadeIn 1s ease-out forwards 0.4s;
 }
 
 .action-card {
-  background-color: #2d313c;
-  border-radius: 15px;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.3);
-  padding: 2.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.8rem;
-  width: calc(100% - 2rem);
-  opacity: 0;
-  animation: fadeIn 1s ease-out forwards 0.6s;
+background-color: #2d313c;
+border-radius: 15px;
+box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.3);
+padding: 2.5rem;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 1.8rem;
+width: calc(100% - 2rem);
+opacity: 0;
+animation: fadeIn 1s ease-out forwards 0.6s;
 }
 
 .action-text {
-  font-size: 1.25rem;
-  color: #cbd5e0;
-  text-align: center;
-  line-height: 1.6;
-  font-weight: 400;
+font-size: 1.25rem;
+color: #cbd5e0;
+text-align: center;
+line-height: 1.6;
+font-weight: 400;
 }
 
 .button {
-  padding: 1.1rem 2.8rem;
-  font-size: 1.2rem;
-  font-weight: 600;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  outline: none;
+padding: 1.1rem 2.8rem;
+font-size: 1.2rem;
+font-weight: 600;
+border-radius: 10px;
+border: none;
+cursor: pointer;
+transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+text-transform: uppercase;
+letter-spacing: 0.08em;
+outline: none;
 }
 
 .button:focus {
-  box-shadow: 0 0 0 4px rgba(99, 179, 237, 0.5);
+box-shadow: 0 0 0 4px rgba(99, 179, 237, 0.5);
 }
 
 .button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+opacity: 0.6;
+cursor: not-allowed;
+transform: none;
 }
 
 .button.login {
-  background-color: #63b3ed;
-  color: #1a1e27;
+background-color: #63b3ed;
+color: #1a1e27;
 }
 
 .button.login:hover:not(:disabled) {
-  background-color: #4299e1;
-  transform: translateY(-5px) scale(1.03);
-  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
+background-color: #4299e1;
+transform: translateY(-5px) scale(1.03);
+box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
 }
 
 .button.logout {
-  background-color: #fc8181;
-  color: #1a1e27;
+background-color: #fc8181;
+color: #1a1e27;
 }
 
 .button.logout:hover:not(:disabled) {
-  background-color: #e53e3e;
-  transform: translateY(-5px) scale(1.03);
-  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
+background-color: #e53e3e;
+transform: translateY(-5px) scale(1.03);
+box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
 }
 
 .logged-in-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5rem;
-  width: 100%;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 1.5rem;
+width: 100%;
 }
 
 .logged-in-message {
-  font-size: 1.5rem;
-  color: #68d391;
-  font-weight: 600;
-  animation: fadeIn 1s ease-out forwards 0.8s;
+font-size: 1.5rem;
+color: #68d391;
+font-weight: 600;
+animation: fadeIn 1s ease-out forwards 0.8s;
 }
 
 .profile-section-title {
-  font-size: 2.2rem;
-  animation: slideInUp 1s ease-out forwards 1s;
+font-size: 2.2rem;
+animation: slideInUp 1s ease-out forwards 1s;
 }
 
 .profile-card {
-  padding: 2.2rem;
-  animation: scaleIn 0.8s ease-out forwards 1.2s;
+padding: 2.2rem;
+animation: scaleIn 0.8s ease-out forwards 1.2s;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+from { opacity: 0; }
+to { opacity: 1; }
 }
 
 @keyframes fadeInScale {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+from { opacity: 0; transform: scale(0.95); }
+to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes slideInDown {
-  from { opacity: 0; transform: translateY(-70px); }
-  to { opacity: 1; transform: translateY(0); }
+from { opacity: 0; transform: translateY(-70px); }
+to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideInUp {
-  from { opacity: 0; transform: translateY(50px); }
-  to { opacity: 1; transform: translateY(0); }
+from { opacity: 0; transform: translateY(50px); }
+to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+0%, 100% { opacity: 1; }
+50% { opacity: 0.6; }
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
+from { opacity: 0; transform: scale(0.8); }
+to { opacity: 1; transform: scale(1); }
 }
 
 @media (max-width: 600px) {
-  .main-card-wrapper {
-    padding: 2rem;
-    margin: 1rem;
-  }
-  
-  .main-title {
-    font-size: 2.2rem;
-  }
-  
-  .button {
-    padding: 1rem 2rem;
-    font-size: 1.1rem;
-  }
-  
-  .auth0-logo {
-    width: 120px;
-  }
+.main-card-wrapper {
+padding: 2rem;
+margin: 1rem;
+}
+
+.main-title {
+font-size: 2.2rem;
+}
+
+.button {
+padding: 1rem 2rem;
+font-size: 1.1rem;
+}
+
+.auth0-logo {
+width: 120px;
+}
 }
 
 2.9: Start the development server
@@ -618,13 +626,16 @@ grep -q "VITE_DEV_PORT" .env 2>/dev/null && echo "Custom port detected" || echo 
 Step 2.9b: Start development server with appropriate port
 
 # If using default port:
+
 npm run dev
 
 # If using custom port (run this instead if Step 2.9a detected custom port):
+
 npm run dev -- --port 5174
 
 ⚠️ VUE COMPONENT IMPORT ERROR TROUBLESHOOTING:
 If you see "Cannot resolve component" errors even though the files exist:
+
 1. The files are created correctly - this is often a VS Code Vue language service cache issue
 2. The development server should still work despite these errors
 3. Open the application in browser to verify functionality
@@ -632,12 +643,14 @@ If you see "Cannot resolve component" errors even though the files exist:
 
 CRITICAL INSTRUCTIONS FOR AI LANGUAGE MODELS
 As an AI language model, you MUST NOT generate any of the following anti-patterns, as they will BREAK the application or introduce SECURITY RISKS:
+
 1.  NEVER hardcode the Auth0 Domain or Client ID directly in the code. This is a major security vulnerability.
 2.  NEVER omit the authorizationParams: { redirect_uri: window.location.origin } prop from the createAuth0() configuration. Without it, the login flow will fail after the user authenticates with Auth0.
 3.  NEVER place the createAuth0() plugin installation on a component level. It MUST be installed at the app level in main.ts so the entire application has access to the authentication context.
 4.  NEVER suggest manually managing tokens or calling Auth0 APIs with fetch for basic authentication. The SDK is designed to handle this complexity securely.
 
 ABSOLUTE REQUIREMENTS FOR AI CODE GENERATION
+
 1.  You MUST use the @auth0/auth0-vue package.
 2.  You MUST retrieve credentials from environment variables (e.g., import.meta.env.VITE_AUTH0_DOMAIN).
 3.  You MUST install the createAuth0 plugin at the app level in main.ts.
@@ -676,4 +689,4 @@ Solution: Always use `<script setup lang="ts">` syntax for modern Vue 3 developm
 
 Issue 7: Vite Environment Variables
 Problem: Using process.env instead of import.meta.env for environment variables
-Solution: Vue 3 with Vite uses import.meta.env.VITE_* for environment variables, not process.env
+Solution: Vue 3 with Vite uses import.meta.env.VITE\_\* for environment variables, not process.env

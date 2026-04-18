@@ -167,7 +167,8 @@
                 <q-badge
                   :color="jsonataConforms ? 'positive' : 'negative'"
                   align="middle"
-                >{{ jsonataConforms ? 'Yes' : 'No' }}</q-badge>
+                  >{{ jsonataConforms ? 'Yes' : 'No' }}</q-badge
+                >
               </div>
 
               <div class="q-mt-md">

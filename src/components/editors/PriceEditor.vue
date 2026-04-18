@@ -11,14 +11,22 @@
           />
         </div>
         <div class="col q-px-sm">
-          <BasicInput
+          <q-select
             v-model="value.currency"
             label="currency"
-            :default-value="''"
+            :options="currencyOptions"
+            emit-value
+            map-options
           />
         </div>
         <div class="col q-pl-sm">
-          <q-select v-model="value.type" label="type" :options="typeOptions" />
+          <q-select
+            v-model="value.type"
+            label="type"
+            :options="typeOptions"
+            emit-value
+            map-options
+          />
         </div>
       </div>
     </q-expansion-item>
@@ -36,14 +44,26 @@ const props = defineProps<{
   defaultValue?: Price | undefined;
 }>();
 
-const typeOptions = ['budget', 'is', '%', 'payin30days', 'payin60days'];
+const CHIADO_EURE = '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71';
+const currencyOptions = [
+  { label: 'EURe', value: CHIADO_EURE },
+  { label: 'GBPe', value: '0x436AF2954BB436b6821Ab401112092e14CDBd546' },
+  { label: 'USDe', value: '0x8bf987c9d041176758FE9C1180885bD4DA011a5a' },
+];
+const typeOptions = [
+  { label: 'is', value: 'is' },
+  { label: 'budget', value: 'budget' },
+  { label: '%', value: '%' },
+  { label: 'payin30days', value: 'payin30days' },
+  { label: 'payin60days', value: 'payin60days' },
+];
 
 const value = ref<Price>(
   props.modelValue ??
     props.defaultValue ?? {
       amount: 0,
-      currency: '',
-      type: 'budget',
+      currency: CHIADO_EURE,
+      type: 'is',
     }
 );
 

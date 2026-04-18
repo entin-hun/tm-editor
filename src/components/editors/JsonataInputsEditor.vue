@@ -149,15 +149,15 @@ function getCurrentPath() {
   const text = localValue.value ?? '';
   const cursor = cursorPosition.value ?? text.length;
   const before = text.slice(0, cursor);
-  
+
   // Match JSONata paths like $.instance.name or partial paths like $.instance.
   const match = before.match(/\$(?:\.[\w.\[\]"']*)?$/);
   const hasRoot = Boolean(match);
   const pathText = match ? match[0] : before.trim();
   const startIndex = match ? before.length - pathText.length : 0;
-  
+
   if (hasRoot && !pathText.startsWith('$')) return null;
-  
+
   const lastDot = pathText.lastIndexOf('.');
   const basePath = lastDot >= 0 ? pathText.slice(hasRoot ? 1 : 0, lastDot) : '';
   const segments = basePath.split('.').filter(Boolean);
@@ -171,7 +171,7 @@ function getCurrentPath() {
 // Only include fields that actually exist in the @trace.market/types
 const fieldTypeOverrides: Record<string, Record<string, string>> = {
   Pokedex: {
-    instance: 'ProductInstance'
+    instance: 'ProductInstance',
   },
   ProductInstance: {
     category: 'string',
@@ -182,7 +182,7 @@ const fieldTypeOverrides: Record<string, Record<string, string>> = {
     quantity: 'number',
     price: 'Price',
     process: 'Process',
-    packaging: 'PackagingInstance'
+    packaging: 'PackagingInstance',
   },
   Process: {
     type: 'string',
@@ -192,27 +192,27 @@ const fieldTypeOverrides: Record<string, Record<string, string>> = {
     inputInstances: 'InputInstance',
     impacts: 'Impact',
     machineInstance: 'MachineInstance',
-    knowHow: 'KnowHow'
+    knowHow: 'KnowHow',
   },
   InputInstance: {
     type: 'string',
     quantity: 'number',
     priceShare: 'number',
-    instance: 'ProductInstance'
+    instance: 'ProductInstance',
   },
   Facility: {
     name: 'string',
-    location: 'GeoJSON'
+    location: 'GeoJSON',
   },
   Price: {
     amount: 'number',
     currency: 'string',
-    type: 'string'
+    type: 'string',
   },
   PackagingInstance: {
     type: 'string',
-    recyclable: 'boolean'
-  }
+    recyclable: 'boolean',
+  },
 };
 
 function findFieldName(typeName: string, segment: string) {

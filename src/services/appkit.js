@@ -18,6 +18,7 @@ import {
 let appKitInstance;
 let appKitInitPromise;
 let ethersAdapter;
+const accountListeners = new Set();
 
 function getProjectId() {
   return (
@@ -44,6 +45,20 @@ function getMetadata() {
     url: origin,
     icons: [`${origin}/favicon.ico`],
   };
+}
+
+/**
+ * Subscribe to AppKit account changes.
+ * Callback receives { address, walletName } or null on disconnect.
+ * Returns an unsubscribe function.
+ */
+export function onAppKitAccount(cb) {
+  accountListeners.add(cb);
+  return () => accountListeners.delete(cb);
+}
+
+function notifyListeners(info) {
+  accountListeners.forEach((cb) => cb(info));
 }
 
 export async function initAppKit() {
@@ -75,6 +90,38 @@ export async function initAppKit() {
       enableEIP6963: true,
       enableInjected: true,
       enableWalletConnect: true,
+      allWallets: 'SHOW',
+    });
+
+    // Subscribe to account state changes
+    appKitInstance.subscribeAccount((state) => {
+      if (state.isConnected && state.address) {
+        // Detect wallet name
+        let walletName = state.connector?.name || null;
+        if (!walletName) {
+          const eth = typeof window !== 'undefined' && window.ethereum;
+          if (eth) {
+            if (eth.isMetaMask && !eth.isCoinbaseWallet)
+              walletName = 'MetaMask';
+            else if (eth.isCoinbaseWallet) walletName = 'Coinbase Wallet';
+            else if (eth.isBraveWallet) walletName = 'Brave Wallet';
+            else if (eth.isFrame) walletName = 'Frame';
+            else walletName = 'Injected Wallet';
+          } else {
+            walletName = 'WalletConnect';
+          }
+        }
+        console.log(
+          '[AppKit] Account connected:',
+          state.address,
+          'via',
+          walletName
+        );
+        notifyListeners({ address: state.address, walletName });
+      } else if (!state.isConnected) {
+        console.log('[AppKit] Account disconnected');
+        notifyListeners(null);
+      }
     });
 
     console.log('[AppKit] Initialized with project ID:', projectId);
@@ -87,15 +134,25 @@ export async function initAppKit() {
 export async function openAppKitModal() {
   const appKit = await initAppKit();
   if (!appKit) return;
-
   await appKit.open({ view: 'Connect' });
-  console.log('[AppKit] Modal opened');
 }
 
 export async function openAppKitOnramp() {
   const appKit = await initAppKit();
   if (!appKit) return;
-
   await appKit.open({ view: 'OnRampProviders' });
-  console.log('[AppKit] Onramp modal opened');
+}
+
+export async function disconnectAppKit() {
+  if (!appKitInstance) return;
+  await appKitInstance.disconnect();
+}
+
+export function getAppKitAddress() {
+  if (!appKitInstance) return undefined;
+  try {
+    return appKitInstance.getAddress();
+  } catch {
+    return undefined;
+  }
 }

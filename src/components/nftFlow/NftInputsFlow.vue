@@ -231,12 +231,7 @@ watch(
 );
 
 const processOptions = computed(() => {
-  const names = schemaStore
-    .getAllTypeNames()
-    .filter((name) => name.endsWith('Process'));
-  const derived = names.map((name) =>
-    name.replace(/Process$/, '').toLowerCase()
-  );
+  const derived = schemaStore.getProcessTypeOptions();
 
   if (isFoodProduct.value) {
     return derived.length

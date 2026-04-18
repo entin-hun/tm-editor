@@ -41,8 +41,49 @@ import { useDialogPluginComponent, copyToClipboard, openURL } from 'quasar';
 
 const props = defineProps<{ tokenId: string }>();
 
-const link = `${process.env.EXPLORER_URL}${BigInt(props.tokenId).toString()}`;
-const packageLink = `${process.env.PACKAGE_URL}/?tokenId=${props.tokenId}`;
+const readEnv = (...keys: string[]): string => {
+  const ienv = ((typeof import.meta !== 'undefined'
+    ? (import.meta as any).env
+    : {}) || {}) as Record<string, string | undefined>;
+  const penv = ((typeof process !== 'undefined' ? (process as any).env : {}) ||
+    {}) as Record<string, string | undefined>;
+  for (const key of keys) {
+    const value = ienv[key] ?? penv[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return '';
+};
+
+const normalizedTokenId = BigInt(props.tokenId).toString();
+const nftContract = readEnv(
+  'VITE_NFT_CONTRACT',
+  'NEXT_PUBLIC_NFT_CONTRACT',
+  'NFT_CONTRACT'
+);
+const explorerTemplate = readEnv('VITE_EXPLORER_URL', 'EXPLORER_URL');
+
+const buildExplorerLink = () => {
+  if (!explorerTemplate) return '';
+  let url = explorerTemplate
+    .replaceAll('$NFT_CONTRACT', nftContract)
+    .replaceAll('$TOKEN_ID', normalizedTokenId);
+
+  const hasTokenPlaceholder = explorerTemplate.includes('$TOKEN_ID');
+  if (!hasTokenPlaceholder) {
+    url = `${url}${normalizedTokenId}`;
+  }
+  return url;
+};
+
+const link = buildExplorerLink();
+const packageBase = readEnv(
+  'VITE_PACKAGE_URL',
+  'NEXT_PUBLIC_PACKAGING_URL',
+  'PACKAGE_URL'
+);
+const packageLink = `${packageBase}/?tokenId=${props.tokenId}`;
 
 defineEmits(useDialogPluginComponent.emits);
 

@@ -3,13 +3,13 @@
     "name": "Pokedex",
     "description": "Complete product record with blockchain references and supply chain data",
     "fields": {
-      "description": {
-        "label": "Description",
-        "description": "HTML-formatted product description shown to consumers"
+      "notes": {
+        "label": "notes",
+        "description": "Auto-generated field from types"
       },
-      "contract": {
-        "label": "Contract",
-        "description": "Blockchain smart contract address where the NFT is minted"
+      "roles": {
+        "label": "roles",
+        "description": "Auto-generated field from types"
       },
       "token": {
         "label": "Token",
@@ -81,7 +81,8 @@
     "fields": {
       "category": {
         "label": "category",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["food"]
       },
       "iDs": {
         "label": "Registry IDs",
@@ -118,14 +119,13 @@
         "description": "Size classification of individual items (not quantity)",
         "examples": ["small", "medium", "large", "XL", "jumbo"]
       },
-      "packaging": {
-        "label": "Packaging",
-        "description": "Type of packaging used for the product",
-        "dataType": "PackagingInstance"
-      },
       "process": {
         "label": "Process",
         "description": "The production/handling process that created this product - displayed as expandable tree node with icon (harvest, milling, freeze-drying, blending, printing, sale)"
+      },
+      "labels": {
+        "label": "labels",
+        "description": "Auto-generated field from types"
       }
     },
     "extends": "ProductInstanceBase"
@@ -134,10 +134,6 @@
     "name": "Cartridge Instance",
     "description": "A 3D printing cartridge used in food production",
     "fields": {
-      "category": {
-        "label": "category",
-        "description": "Auto-generated field from types"
-      },
       "grade": {
         "label": "Grade",
         "description": "Quality grade of the cartridge",
@@ -148,8 +144,7 @@
         "description": "Physical size classification of the cartridge",
         "examples": ["small", "medium", "large", "100g", "500g"]
       }
-    },
-    "extends": "ProductInstanceBase"
+    }
   },
   "NonFoodInstance": {
     "name": "Non-Food Instance",
@@ -157,15 +152,19 @@
     "fields": {
       "category": {
         "label": "category",
+        "description": "Auto-generated field from types",
+        "examples": ["non-food"]
+      },
+      "grade": {
+        "label": "grade",
         "description": "Auto-generated field from types"
       },
-      "packaging": {
-        "label": "Packaging",
-        "description": "Packaging details",
-        "dataType": "PackagingInstance"
+      "size": {
+        "label": "size",
+        "description": "Auto-generated field from types"
       },
-      "process": {
-        "label": "process",
+      "labels": {
+        "label": "labels",
         "description": "Auto-generated field from types"
       }
     },
@@ -175,21 +174,22 @@
     "name": "Packaging",
     "description": "Packaging information",
     "fields": {
-      "type": {
-        "label": "Type",
-        "description": "Common packaging format",
-        "examples": ["box", "bag", "bottle", "can", "pallet"]
+      "category": {
+        "label": "category",
+        "description": "Auto-generated field from types",
+        "examples": ["packaging"]
       },
       "material": {
         "label": "Material",
         "description": "Primary material",
         "examples": ["plastic", "glass", "paper", "metal", "wood"]
       },
-      "recyclable": {
-        "label": "Recyclable",
-        "description": "Can this packaging be recycled?"
+      "labels": {
+        "label": "labels",
+        "description": "Auto-generated field from types"
       }
-    }
+    },
+    "extends": "ProductInstanceBase"
   },
   "InputInstance": {
     "name": "Input Instance",
@@ -220,7 +220,8 @@
     "fields": {
       "type": {
         "label": "Type",
-        "description": "Always \"local\" - indicates no shipping involved"
+        "description": "Always \"local\" - indicates no shipping involved",
+        "examples": ["local"]
       }
     },
     "extends": "GenericInputInstance"
@@ -231,7 +232,8 @@
     "fields": {
       "type": {
         "label": "Type",
-        "description": "Always \"transported\" - triggers display of shipping details"
+        "description": "Always \"transported\" - triggers display of shipping details",
+        "examples": ["transported"]
       },
       "transport": {
         "label": "Transport",
@@ -337,12 +339,12 @@
     "fields": {
       "type": {
         "label": "type",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["printing"]
       },
-      "machineInstance": {
-        "label": "Printer",
-        "description": "3D food printer used",
-        "dataType": "MachineInstance"
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
       },
       "knowHow": {
         "label": "Recipe",
@@ -361,16 +363,16 @@
     "fields": {
       "type": {
         "label": "type",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["milling"]
       },
       "knowHow": {
         "label": "Process Recipe",
         "description": "Milling parameters and instructions"
       },
-      "machineInstance": {
-        "label": "Mill",
-        "description": "Milling equipment used",
-        "dataType": "MachineInstance"
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
       }
     },
     "extends": "GenericProcess"
@@ -381,16 +383,16 @@
     "fields": {
       "type": {
         "label": "type",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["freezedrying"]
       },
       "knowHow": {
         "label": "Process Recipe",
         "description": "Temperature curve and timing"
       },
-      "machineInstance": {
-        "label": "Freeze Dryer",
-        "description": "Lyophilization equipment used",
-        "dataType": "MachineInstance"
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
       }
     },
     "extends": "GenericProcess"
@@ -401,12 +403,12 @@
     "fields": {
       "type": {
         "label": "type",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["blending"]
       },
-      "machineInstance": {
-        "label": "Blender",
-        "description": "Blending equipment used",
-        "dataType": "MachineInstance"
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
       },
       "knowHow": {
         "label": "Recipe",
@@ -421,7 +423,8 @@
     "fields": {
       "type": {
         "label": "type",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["sale"]
       },
       "price": {
         "label": "Sale Price",
@@ -436,7 +439,8 @@
     "fields": {
       "type": {
         "label": "type",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["harvest"]
       }
     },
     "extends": "GenericProcess"
@@ -445,21 +449,15 @@
     "name": "Label Tagger",
     "description": "Applies labels or tags to products or packaging",
     "fields": {
-      "type": {
-        "label": "type",
-        "description": "Auto-generated field from types"
-      },
       "machineInstance": {
         "label": "Labeler",
-        "description": "Labeling equipment used",
-        "dataType": "MachineInstance"
+        "description": "Labeling equipment used"
       },
       "knowHow": {
         "label": "Process Recipe",
         "description": "Labeling parameters and instructions"
       }
-    },
-    "extends": "GenericProcess"
+    }
   },
   "Facility": {
     "name": "Facility",
@@ -637,7 +635,8 @@
     "fields": {
       "category": {
         "label": "category",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["carbon"]
       }
     },
     "extends": "GenericImpact"
@@ -648,7 +647,8 @@
     "fields": {
       "category": {
         "label": "category",
-        "description": "Auto-generated field from types"
+        "description": "Auto-generated field from types",
+        "examples": ["water"]
       }
     },
     "extends": "GenericImpact"
@@ -739,8 +739,149 @@
       "price": {
         "label": "price",
         "description": "Auto-generated field from types"
+      },
+      "hr": {
+        "label": "hr",
+        "description": "Auto-generated field from types"
+      },
+      "notes": {
+        "label": "notes",
+        "description": "Auto-generated field from types"
       }
     }
+  },
+  "CookingProcess": {
+    "name": "CookingProcess",
+    "description": "Auto-generated from types",
+    "fields": {
+      "type": {
+        "label": "type",
+        "description": "Auto-generated field from types",
+        "examples": ["cooking"]
+      },
+      "method": {
+        "label": "method",
+        "description": "Auto-generated field from types",
+        "examples": [
+          "baking",
+          "boiling",
+          "frying",
+          "steaming",
+          "roasting",
+          "sous-vide",
+          "grilling"
+        ]
+      },
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
+      },
+      "knowHow": {
+        "label": "knowHow",
+        "description": "Auto-generated field from types"
+      }
+    },
+    "extends": "GenericProcess"
+  },
+  "SortingProcess": {
+    "name": "SortingProcess",
+    "description": "Auto-generated from types",
+    "fields": {
+      "type": {
+        "label": "type",
+        "description": "Auto-generated field from types",
+        "examples": ["sorting"]
+      },
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
+      },
+      "knowHow": {
+        "label": "knowHow",
+        "description": "Auto-generated field from types"
+      }
+    },
+    "extends": "GenericProcess"
+  },
+  "QualityCheckProcess": {
+    "name": "QualityCheckProcess",
+    "description": "Auto-generated from types",
+    "fields": {
+      "type": {
+        "label": "type",
+        "description": "Auto-generated field from types",
+        "examples": ["quality check"]
+      },
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
+      },
+      "knowHow": {
+        "label": "knowHow",
+        "description": "Auto-generated field from types"
+      }
+    },
+    "extends": "GenericProcess"
+  },
+  "LabelingProcess": {
+    "name": "LabelingProcess",
+    "description": "Auto-generated from types",
+    "fields": {
+      "type": {
+        "label": "type",
+        "description": "Auto-generated field from types",
+        "examples": ["labeling"]
+      },
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
+      },
+      "knowHow": {
+        "label": "knowHow",
+        "description": "Auto-generated field from types"
+      }
+    },
+    "extends": "GenericProcess"
+  },
+  "PyrolysisProcess": {
+    "name": "PyrolysisProcess",
+    "description": "Auto-generated from types",
+    "fields": {
+      "type": {
+        "label": "type",
+        "description": "Auto-generated field from types",
+        "examples": ["pyrolysis"]
+      },
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
+      },
+      "knowHow": {
+        "label": "knowHow",
+        "description": "Auto-generated field from types"
+      }
+    },
+    "extends": "GenericProcess"
+  },
+  "DistillationProcess": {
+    "name": "DistillationProcess",
+    "description": "Auto-generated from types",
+    "fields": {
+      "type": {
+        "label": "type",
+        "description": "Auto-generated field from types",
+        "examples": ["distillation"]
+      },
+      "toolInstance": {
+        "label": "toolInstance",
+        "description": "Auto-generated field from types"
+      },
+      "knowHow": {
+        "label": "knowHow",
+        "description": "Auto-generated field from types"
+      }
+    },
+    "extends": "GenericProcess"
   },
   "GenericInputInstance": {
     "name": "GenericInputInstance",
@@ -788,12 +929,46 @@
         "label": "title",
         "description": "Auto-generated field from types"
       },
-      "description": {
-        "label": "description",
+      "notes": {
+        "label": "notes",
         "description": "Auto-generated field from types"
       },
       "pictureURL": {
         "label": "pictureURL",
+        "description": "Auto-generated field from types"
+      }
+    }
+  },
+  "ToolInstance": {
+    "name": "ToolInstance",
+    "description": "Auto-generated from types",
+    "fields": {
+      "category": {
+        "label": "category",
+        "description": "Auto-generated field from types"
+      },
+      "ownerId": {
+        "label": "ownerId",
+        "description": "Auto-generated field from types"
+      },
+      "quantity": {
+        "label": "quantity",
+        "description": "Auto-generated field from types"
+      },
+      "size": {
+        "label": "size",
+        "description": "Auto-generated field from types"
+      },
+      "ratedPowerKW": {
+        "label": "ratedPowerKW",
+        "description": "Auto-generated field from types"
+      },
+      "providerSDomain": {
+        "label": "providerSDomain",
+        "description": "Auto-generated field from types"
+      },
+      "hash": {
+        "label": "hash",
         "description": "Auto-generated field from types"
       }
     }

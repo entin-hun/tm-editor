@@ -47,8 +47,8 @@ export const defaultMachineInstance: MachineInstance = {
 
 export const defaultPrice: Price = {
   amount: 0,
-  currency: '',
-  type: 'budget',
+  currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+  type: 'is',
 };
 
 export const defaultKnowHow: KnowHow = {

@@ -19,7 +19,7 @@ export async function uploadSwarmJson(payload: unknown) {
   const batchId = getBatchId();
   const response = await axios.post(`${baseUrl}/bzz`, payload, {
     headers: {
-      'swarm-postage-batch-id': batchId,
+      Authorization: 'Basic ATM-dXNlcjpwYXNz',
       'swarm-pin': 'true',
       'Content-Type': 'application/json',
     },

@@ -6,6 +6,16 @@
       "fieldType": "string"
     },
     {
+      "type": "Pokedex",
+      "field": "notes",
+      "fieldType": "string"
+    },
+    {
+      "type": "Pokedex",
+      "field": "roles",
+      "fieldType": "string"
+    },
+    {
       "type": "GenericProcess",
       "field": "timestamp",
       "fieldType": "number"
@@ -41,9 +51,24 @@
       "fieldType": "Price"
     },
     {
+      "type": "GenericProcess",
+      "field": "hr",
+      "fieldType": "Hr"
+    },
+    {
+      "type": "GenericProcess",
+      "field": "notes",
+      "fieldType": "Record<string, string | number | boolean>"
+    },
+    {
       "type": "PrintingProcess",
       "field": "type",
       "fieldType": "\"printing\""
+    },
+    {
+      "type": "PrintingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
     },
     {
       "type": "MillingProcess",
@@ -51,14 +76,29 @@
       "fieldType": "\"milling\""
     },
     {
+      "type": "MillingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
       "type": "FreezeDryingProcess",
       "field": "type",
       "fieldType": "\"freezedrying\""
     },
     {
+      "type": "FreezeDryingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
       "type": "BlendingProcess",
       "field": "type",
       "fieldType": "\"blending\""
+    },
+    {
+      "type": "BlendingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
     },
     {
       "type": "SaleProcess",
@@ -71,9 +111,99 @@
       "fieldType": "\"harvest\""
     },
     {
-      "type": "LabelTaggerProcess",
+      "type": "CookingProcess",
       "field": "type",
-      "fieldType": "\"labeltagger\""
+      "fieldType": "\"cooking\""
+    },
+    {
+      "type": "CookingProcess",
+      "field": "method",
+      "fieldType": "\"baking\" | \"boiling\" | \"frying\" | \"steaming\" | \"roasting\" | \"sous-vide\" | \"grilling\""
+    },
+    {
+      "type": "CookingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
+      "type": "CookingProcess",
+      "field": "knowHow",
+      "fieldType": "TokenIdOr<KnowHow>"
+    },
+    {
+      "type": "SortingProcess",
+      "field": "type",
+      "fieldType": "\"sorting\""
+    },
+    {
+      "type": "SortingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
+      "type": "SortingProcess",
+      "field": "knowHow",
+      "fieldType": "TokenIdOr<KnowHow>"
+    },
+    {
+      "type": "QualityCheckProcess",
+      "field": "type",
+      "fieldType": "\"quality check\""
+    },
+    {
+      "type": "QualityCheckProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
+      "type": "QualityCheckProcess",
+      "field": "knowHow",
+      "fieldType": "TokenIdOr<KnowHow>"
+    },
+    {
+      "type": "LabelingProcess",
+      "field": "type",
+      "fieldType": "\"labeling\""
+    },
+    {
+      "type": "LabelingProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
+      "type": "LabelingProcess",
+      "field": "knowHow",
+      "fieldType": "TokenIdOr<KnowHow>"
+    },
+    {
+      "type": "PyrolysisProcess",
+      "field": "type",
+      "fieldType": "\"pyrolysis\""
+    },
+    {
+      "type": "PyrolysisProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
+      "type": "PyrolysisProcess",
+      "field": "knowHow",
+      "fieldType": "TokenIdOr<KnowHow>"
+    },
+    {
+      "type": "DistillationProcess",
+      "field": "type",
+      "fieldType": "\"distillation\""
+    },
+    {
+      "type": "DistillationProcess",
+      "field": "toolInstance",
+      "fieldType": "TokenIdOr<ToolInstance>"
+    },
+    {
+      "type": "DistillationProcess",
+      "field": "knowHow",
+      "fieldType": "TokenIdOr<KnowHow>"
     },
     {
       "type": "GenericInputInstance",
@@ -122,7 +252,7 @@
     },
     {
       "type": "ProductInstanceBase",
-      "field": "description",
+      "field": "notes",
       "fieldType": "string"
     },
     {
@@ -136,19 +266,74 @@
       "fieldType": "\"food\""
     },
     {
+      "type": "FoodInstance",
+      "field": "labels",
+      "fieldType": "string[]"
+    },
+    {
       "type": "NonFoodInstance",
       "field": "category",
       "fieldType": "\"non-food\""
     },
     {
       "type": "NonFoodInstance",
-      "field": "process",
-      "fieldType": "Process"
+      "field": "grade",
+      "fieldType": "string"
     },
     {
-      "type": "CartridgeInstance",
+      "type": "NonFoodInstance",
+      "field": "size",
+      "fieldType": "string"
+    },
+    {
+      "type": "NonFoodInstance",
+      "field": "labels",
+      "fieldType": "string[]"
+    },
+    {
+      "type": "PackagingInstance",
       "field": "category",
-      "fieldType": "\"cartridge\""
+      "fieldType": "\"packaging\""
+    },
+    {
+      "type": "PackagingInstance",
+      "field": "labels",
+      "fieldType": "string[]"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "category",
+      "fieldType": "string"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "ownerId",
+      "fieldType": "string"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "quantity",
+      "fieldType": "number"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "size",
+      "fieldType": "string"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "ratedPowerKW",
+      "fieldType": "number"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "providerSDomain",
+      "fieldType": "string"
+    },
+    {
+      "type": "ToolInstance",
+      "field": "hash",
+      "fieldType": "string"
     },
     {
       "type": "GenericImpact",

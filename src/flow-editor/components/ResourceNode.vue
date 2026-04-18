@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
-import type { CSSProperties } from "vue";
-import { Components } from "@baklavajs/renderer-vue";
-import type { AbstractNode, NodeInterface } from "@baklavajs/core";
-import type { Hr, Impact, InputInstance, ProductInstance } from "@trace.market/types";
-import InputInstanceEditor from "../../components/editors/InputInstanceEditor.vue";
-import ProductInstanceEditor from "../../components/editors/ProductInstanceEditor.vue";
-import HrEditor from "../../components/editors/HrEditor.vue";
-import SiteEditor from "../../components/editors/SiteEditor.vue";
-import ImpactArrayEditor from "../../components/editors/impacts/ImpactArrayEditor.vue";
-import type { KnowHow } from "@trace.market/types";
+import { computed, ref, watch } from 'vue';
+import type { CSSProperties } from 'vue';
+import { Components } from '@baklavajs/renderer-vue';
+import type { AbstractNode, NodeInterface } from '@baklavajs/core';
+import type {
+  Hr,
+  Impact,
+  InputInstance,
+  ProductInstance,
+} from '@trace.market/types';
+import InputInstanceEditor from '../../components/editors/InputInstanceEditor.vue';
+import ProductInstanceEditor from '../../components/editors/ProductInstanceEditor.vue';
+import HrEditor from '../../components/editors/HrEditor.vue';
+import SiteEditor from '../../components/editors/SiteEditor.vue';
+import ImpactArrayEditor from '../../components/editors/impacts/ImpactArrayEditor.vue';
+import type { KnowHow } from '@trace.market/types';
 
-type Location = "left" | "right" | "top" | "bottom";
+type Location = 'left' | 'right' | 'top' | 'bottom';
 type PortMeta = {
   location?: Location;
 };
@@ -34,49 +39,83 @@ type ResourceFields = {
   parameters?: string;
 };
 
-const readFields = () => (props.node as AbstractNode & { fields?: ResourceFields }).fields ?? {};
-const readResourceType = () => (props.node as AbstractNode & { resourceType?: string }).resourceType ?? "";
-const readTitle = () => (props.node as AbstractNode & { title?: string }).title ?? "";
+const readFields = () =>
+  (props.node as AbstractNode & { fields?: ResourceFields }).fields ?? {};
+const readResourceType = () =>
+  (props.node as AbstractNode & { resourceType?: string }).resourceType ?? '';
+const readTitle = () =>
+  (props.node as AbstractNode & { title?: string }).title ?? '';
 
-const inputInstance = computed(() => (props.node as AbstractNode & { inputInstance?: InputInstance }).inputInstance);
-const machineInstance = computed(
-  () => (props.node as AbstractNode & { machineInstance?: unknown }).machineInstance
+const inputInstance = computed(
+  () =>
+    (props.node as AbstractNode & { inputInstance?: InputInstance })
+      .inputInstance
 );
-const controlSite = computed(() => (props.node as AbstractNode & { site?: unknown }).site);
+const machineInstance = computed(
+  () =>
+    (props.node as AbstractNode & { machineInstance?: unknown }).machineInstance
+);
+const controlSite = computed(
+  () => (props.node as AbstractNode & { site?: unknown }).site
+);
 const controlHr = computed(() => (props.node as AbstractNode & { hr?: Hr }).hr);
-const impactArray = computed(() => (props.node as AbstractNode & { impacts?: Impact[] }).impacts);
-const knowHowValue = computed(() => (props.node as AbstractNode & { knowHow?: KnowHow }).knowHow);
+const impactArray = computed(
+  () => (props.node as AbstractNode & { impacts?: Impact[] }).impacts
+);
+const knowHowValue = computed(
+  () => (props.node as AbstractNode & { knowHow?: KnowHow }).knowHow
+);
 type PricedProduct = ProductInstance & { price?: unknown };
 const outputInstance = computed(
-  () => (props.node as AbstractNode & { outputInstance?: ProductInstance | PricedProduct }).outputInstance
+  () =>
+    (
+      props.node as AbstractNode & {
+        outputInstance?: ProductInstance | PricedProduct;
+      }
+    ).outputInstance
 );
 
 const applyInputInstance = (next: InputInstance) => {
-  const node = props.node as AbstractNode & { inputInstance?: InputInstance; onInputUpdate?: (input: InputInstance) => void };
+  const node = props.node as AbstractNode & {
+    inputInstance?: InputInstance;
+    onInputUpdate?: (input: InputInstance) => void;
+  };
   node.inputInstance = next;
   node.onInputUpdate?.(next);
 };
 
 const applyMachineInstance = (next: unknown) => {
-  const node = props.node as AbstractNode & { machineInstance?: unknown; onMachineUpdate?: (machine: unknown) => void };
+  const node = props.node as AbstractNode & {
+    machineInstance?: unknown;
+    onMachineUpdate?: (machine: unknown) => void;
+  };
   node.machineInstance = next;
   node.onMachineUpdate?.(next);
 };
 
 const applyControlSite = (next: unknown) => {
-  const node = props.node as AbstractNode & { site?: unknown; onSiteUpdate?: (site?: unknown) => void };
+  const node = props.node as AbstractNode & {
+    site?: unknown;
+    onSiteUpdate?: (site?: unknown) => void;
+  };
   node.site = next;
   node.onSiteUpdate?.(next);
 };
 
 const applyControlHr = (next: Hr | undefined) => {
-  const node = props.node as AbstractNode & { hr?: Hr; onHrUpdate?: (hr?: Hr) => void };
+  const node = props.node as AbstractNode & {
+    hr?: Hr;
+    onHrUpdate?: (hr?: Hr) => void;
+  };
   node.hr = next;
   node.onHrUpdate?.(next);
 };
 
 const applyImpacts = (next: Impact[] | undefined) => {
-  const node = props.node as AbstractNode & { impacts?: Impact[]; onImpactsUpdate?: (impacts?: Impact[]) => void };
+  const node = props.node as AbstractNode & {
+    impacts?: Impact[];
+    onImpactsUpdate?: (impacts?: Impact[]) => void;
+  };
   node.impacts = next;
   node.onImpactsUpdate?.(next);
 };
@@ -92,14 +131,19 @@ const applyOutputInstance = (next: ProductInstance | PricedProduct) => {
 
 const syncFieldsUpdate = () => {
   const fields = readFields();
-  const node = props.node as AbstractNode & { onFieldsUpdate?: (fields: ResourceFields) => void };
+  const node = props.node as AbstractNode & {
+    onFieldsUpdate?: (fields: ResourceFields) => void;
+  };
   node.onFieldsUpdate?.(fields);
 };
 
 const titleDraft = ref(readTitle());
 const syncTitle = () => {
-  (props.node as AbstractNode & { title?: string }).title = titleDraft.value.trim();
-  const node = props.node as AbstractNode & { onTitleUpdate?: (title: string) => void };
+  (props.node as AbstractNode & { title?: string }).title =
+    titleDraft.value.trim();
+  const node = props.node as AbstractNode & {
+    onTitleUpdate?: (title: string) => void;
+  };
   node.onTitleUpdate?.(titleDraft.value.trim());
 };
 
@@ -113,9 +157,9 @@ watch(
 );
 
 const editingOrigin = ref(false);
-const originDraft = ref("");
+const originDraft = ref('');
 const startEditOrigin = () => {
-  originDraft.value = readFields().origin ?? "";
+  originDraft.value = readFields().origin ?? '';
   editingOrigin.value = true;
 };
 const saveOrigin = () => {
@@ -127,10 +171,11 @@ const saveOrigin = () => {
 };
 
 const editingOutputKg = ref(false);
-const outputKgDraft = ref("1");
+const outputKgDraft = ref('1');
 const startEditOutputKg = () => {
   const current = readFields().outputKg;
-  outputKgDraft.value = current === undefined || Number.isNaN(current) ? "1" : String(current);
+  outputKgDraft.value =
+    current === undefined || Number.isNaN(current) ? '1' : String(current);
   editingOutputKg.value = true;
 };
 const saveOutputKg = () => {
@@ -145,9 +190,9 @@ const saveOutputKg = () => {
 };
 
 const editingDestination = ref(false);
-const destinationDraft = ref("");
+const destinationDraft = ref('');
 const startEditDestination = () => {
-  destinationDraft.value = readFields().destination ?? "";
+  destinationDraft.value = readFields().destination ?? '';
   editingDestination.value = true;
 };
 const saveDestination = () => {
@@ -159,10 +204,11 @@ const saveDestination = () => {
 };
 
 const editingInputQuantity = ref(false);
-const inputQuantityDraft = ref("0");
+const inputQuantityDraft = ref('0');
 const startEditInputQuantity = () => {
   const current = readFields().inputQuantity;
-  inputQuantityDraft.value = current === undefined || Number.isNaN(current) ? "0" : String(current);
+  inputQuantityDraft.value =
+    current === undefined || Number.isNaN(current) ? '0' : String(current);
   editingInputQuantity.value = true;
 };
 const saveInputQuantity = () => {
@@ -176,7 +222,7 @@ const saveInputQuantity = () => {
   syncFieldsUpdate();
 };
 
-const detailsDraft = ref("");
+const detailsDraft = ref('');
 const syncDetails = () => {
   const fields = readFields();
   fields.details = detailsDraft.value;
@@ -187,16 +233,17 @@ const syncDetails = () => {
 watch(
   () => readFields().details,
   (next) => {
-    detailsDraft.value = next ?? "";
+    detailsDraft.value = next ?? '';
   },
   { immediate: true }
 );
 
 const editingQuantity = ref(false);
-const quantityDraft = ref("0");
+const quantityDraft = ref('0');
 const startEditQuantity = () => {
   const current = readFields().quantity;
-  quantityDraft.value = current === undefined || Number.isNaN(current) ? "0" : String(current);
+  quantityDraft.value =
+    current === undefined || Number.isNaN(current) ? '0' : String(current);
   editingQuantity.value = true;
 };
 const saveQuantity = () => {
@@ -211,9 +258,9 @@ const saveQuantity = () => {
 };
 
 const editingDuration = ref(false);
-const durationDraft = ref("");
+const durationDraft = ref('');
 const startEditDuration = () => {
-  durationDraft.value = readFields().duration ?? "";
+  durationDraft.value = readFields().duration ?? '';
   editingDuration.value = true;
 };
 const saveDuration = () => {
@@ -224,7 +271,7 @@ const saveDuration = () => {
   syncFieldsUpdate();
 };
 
-const parametersDraft = ref("");
+const parametersDraft = ref('');
 const syncParameters = () => {
   const fields = readFields();
   fields.parameters = parametersDraft.value;
@@ -235,7 +282,7 @@ const syncParameters = () => {
 watch(
   () => readFields().parameters,
   (next) => {
-    parametersDraft.value = next ?? "";
+    parametersDraft.value = next ?? '';
   },
   { immediate: true }
 );
@@ -244,44 +291,70 @@ const readLocation = (intf: NodeInterface<unknown>) =>
   (intf as NodeInterface<unknown> & { data?: PortMeta }).data?.location;
 
 const allPorts = computed<NodeInterface<unknown>[]>(
-  () => [...Object.values(props.node.inputs), ...Object.values(props.node.outputs)] as NodeInterface<unknown>[]
+  () =>
+    [
+      ...Object.values(props.node.inputs),
+      ...Object.values(props.node.outputs),
+    ] as NodeInterface<unknown>[]
 );
 const leftPorts = computed<NodeInterface<unknown>[]>(
-  () => allPorts.value.filter((intf) => readLocation(intf) === "left") as NodeInterface<unknown>[]
+  () =>
+    allPorts.value.filter(
+      (intf) => readLocation(intf) === 'left'
+    ) as NodeInterface<unknown>[]
 );
 const rightPorts = computed<NodeInterface<unknown>[]>(
-  () => allPorts.value.filter((intf) => readLocation(intf) === "right") as NodeInterface<unknown>[]
+  () =>
+    allPorts.value.filter(
+      (intf) => readLocation(intf) === 'right'
+    ) as NodeInterface<unknown>[]
 );
 const topPorts = computed<NodeInterface<unknown>[]>(
-  () => allPorts.value.filter((intf) => readLocation(intf) === "top") as NodeInterface<unknown>[]
+  () =>
+    allPorts.value.filter(
+      (intf) => readLocation(intf) === 'top'
+    ) as NodeInterface<unknown>[]
 );
 const bottomPorts = computed<NodeInterface<unknown>[]>(
-  () => allPorts.value.filter((intf) => readLocation(intf) === "bottom") as NodeInterface<unknown>[]
+  () =>
+    allPorts.value.filter(
+      (intf) => readLocation(intf) === 'bottom'
+    ) as NodeInterface<unknown>[]
 );
 
 const resourceType = computed(() => readResourceType());
-const isInput = computed(() => resourceType.value === "input");
-const isOutput = computed(() => resourceType.value === "output");
-const isMachine = computed(() => resourceType.value === "machine");
-const isSite = computed(() => resourceType.value === "site");
-const isHr = computed(() => resourceType.value === "hr");
-const isImpact = computed(() => resourceType.value === "impact");
-const isKnowHow = computed(() => resourceType.value === "knowhow");
-const isQuantityNode = computed(() => ["energy", "gas", "water"].includes(resourceType.value));
-const isTimedNode = computed(() => ["service", "property"].includes(resourceType.value));
+const isInput = computed(() => resourceType.value === 'input');
+const isOutput = computed(() => resourceType.value === 'output');
+const isMachine = computed(() => resourceType.value === 'machine');
+const isSite = computed(() => resourceType.value === 'site');
+const isHr = computed(() => resourceType.value === 'hr');
+const isImpact = computed(() => resourceType.value === 'impact');
+const isKnowHow = computed(() => resourceType.value === 'knowhow');
+const isQuantityNode = computed(() =>
+  ['energy', 'gas', 'water'].includes(resourceType.value)
+);
+const isTimedNode = computed(() =>
+  ['service', 'property'].includes(resourceType.value)
+);
 
 const outputPointerStart = ref<{ x: number; y: number } | null>(null);
-const handleOutputPointerDown = (event: PointerEvent, intf: NodeInterface<unknown>) => {
+const handleOutputPointerDown = (
+  event: PointerEvent,
+  intf: NodeInterface<unknown>
+) => {
   if (!isOutput.value) return;
-  if (readLocation(intf) !== "right") return;
+  if (readLocation(intf) !== 'right') return;
   event.stopPropagation();
   event.preventDefault();
   outputPointerStart.value = { x: event.clientX, y: event.clientY };
 };
 
-const handleOutputPointerUp = (event: PointerEvent, intf: NodeInterface<unknown>) => {
+const handleOutputPointerUp = (
+  event: PointerEvent,
+  intf: NodeInterface<unknown>
+) => {
   if (!isOutput.value) return;
-  if (readLocation(intf) !== "right") return;
+  if (readLocation(intf) !== 'right') return;
   event.stopPropagation();
   event.preventDefault();
   const start = outputPointerStart.value;
@@ -295,14 +368,20 @@ const handleOutputPointerUp = (event: PointerEvent, intf: NodeInterface<unknown>
 
 /* Input connector: + badge on the left side of input nodes */
 const inputPointerStart = ref<{ x: number; y: number } | null>(null);
-const handleInputPointerDown = (event: PointerEvent, intf: NodeInterface<unknown>) => {
+const handleInputPointerDown = (
+  event: PointerEvent,
+  intf: NodeInterface<unknown>
+) => {
   if (!isInput.value) return;
   event.stopPropagation();
   event.preventDefault();
   inputPointerStart.value = { x: event.clientX, y: event.clientY };
 };
 
-const handleInputPointerUp = (event: PointerEvent, intf: NodeInterface<unknown>) => {
+const handleInputPointerUp = (
+  event: PointerEvent,
+  intf: NodeInterface<unknown>
+) => {
   if (!isInput.value) return;
   event.stopPropagation();
   event.preventDefault();
@@ -340,42 +419,46 @@ const handleInputPointerUpStandalone = (event: PointerEvent) => {
 };
 
 const clampCount = (count: number) => (count > 0 ? count : 1);
-const getPortStyle = (side: Location, index: number, count: number): CSSProperties => {
+const getPortStyle = (
+  side: Location,
+  index: number,
+  count: number
+): CSSProperties => {
   const safeCount = clampCount(count);
   const fraction = (index + 1) / (safeCount + 1);
 
-  if (side === "left") {
+  if (side === 'left') {
     return {
-      position: "absolute",
-      left: "0%",
+      position: 'absolute',
+      left: '0%',
       top: `${fraction * 100}%`,
-      transform: "translate(-50%, -50%)",
+      transform: 'translate(-50%, -50%)',
     };
   }
 
-  if (side === "right") {
+  if (side === 'right') {
     return {
-      position: "absolute",
-      left: "100%",
+      position: 'absolute',
+      left: '100%',
       top: `${fraction * 100}%`,
-      transform: "translate(-50%, -50%)",
+      transform: 'translate(-50%, -50%)',
     };
   }
 
-  if (side === "top") {
+  if (side === 'top') {
     return {
-      position: "absolute",
+      position: 'absolute',
       left: `${fraction * 100}%`,
-      top: "0%",
-      transform: "translate(-50%, -50%)",
+      top: '0%',
+      transform: 'translate(-50%, -50%)',
     };
   }
 
   return {
-    position: "absolute",
+    position: 'absolute',
     left: `${fraction * 100}%`,
-    top: "100%",
-    transform: "translate(-50%, -50%)",
+    top: '100%',
+    transform: 'translate(-50%, -50%)',
   };
 };
 
@@ -384,10 +467,10 @@ const getBadgeStyle = (index: number, count: number): CSSProperties => {
   const safeCount = clampCount(count);
   const fraction = (index + 1) / (safeCount + 1);
   return {
-    position: "absolute",
-    left: "calc(100% + 10px)",
+    position: 'absolute',
+    left: 'calc(100% + 10px)',
     top: `${fraction * 100}%`,
-    transform: "translate(0, -50%)",
+    transform: 'translate(0, -50%)',
   };
 };
 
@@ -396,29 +479,31 @@ const getBadgeStyleLeft = (index: number, count: number): CSSProperties => {
   const safeCount = clampCount(count);
   const fraction = (index + 1) / (safeCount + 1);
   return {
-    position: "absolute",
-    left: "calc(0% - 26px)",
+    position: 'absolute',
+    left: 'calc(0% - 26px)',
     top: `${fraction * 100}%`,
-    transform: "translate(0, -50%)",
+    transform: 'translate(0, -50%)',
   };
 };
 
 const NodeInterfaceView = Components.NodeInterface;
 
-const controlTypeDraft = ref<"site" | "hr" | "machine">("hr");
+const controlTypeDraft = ref<'site' | 'hr' | 'machine'>('hr');
 const canSwitchControlType = computed(() => {
-  const node = props.node as AbstractNode & { onControlKindUpdate?: (next: "site" | "hr" | "machine") => void };
-  return typeof node.onControlKindUpdate === "function";
+  const node = props.node as AbstractNode & {
+    onControlKindUpdate?: (next: 'site' | 'hr' | 'machine') => void;
+  };
+  return typeof node.onControlKindUpdate === 'function';
 });
 
 watch(
   () => readResourceType(),
   (next) => {
-    if (next === "site" || next === "machine") {
+    if (next === 'site' || next === 'machine') {
       controlTypeDraft.value = next;
       return;
     }
-    controlTypeDraft.value = "hr";
+    controlTypeDraft.value = 'hr';
   },
   { immediate: true }
 );
@@ -427,30 +512,41 @@ const applyControlType = () => {
   const nextType = controlTypeDraft.value;
   const node = props.node as AbstractNode & {
     resourceType?: string;
-    onControlKindUpdate?: (next: "site" | "hr" | "machine") => void;
+    onControlKindUpdate?: (next: 'site' | 'hr' | 'machine') => void;
   };
   node.resourceType = nextType;
   node.onControlKindUpdate?.(nextType);
 };
 
 const applyKnowHow = (next: KnowHow | undefined) => {
-  const node = props.node as AbstractNode & { knowHow?: KnowHow; onKnowHowUpdate?: (knowHow?: KnowHow) => void };
+  const node = props.node as AbstractNode & {
+    knowHow?: KnowHow;
+    onKnowHowUpdate?: (knowHow?: KnowHow) => void;
+  };
   node.knowHow = next;
   node.onKnowHowUpdate?.(next);
 };
 
-const machineHashDraft = ref("");
+const machineHashDraft = ref('');
 const syncMachineHashFromNode = () => {
-  const machine = (props.node as AbstractNode & { machineInstance?: unknown }).machineInstance;
-  if (machine && typeof machine === "object" && "hash" in (machine as Record<string, unknown>)) {
+  const machine = (props.node as AbstractNode & { machineInstance?: unknown })
+    .machineInstance;
+  if (
+    machine &&
+    typeof machine === 'object' &&
+    'hash' in (machine as Record<string, unknown>)
+  ) {
     const raw = (machine as Record<string, unknown>).hash;
-    machineHashDraft.value = typeof raw === "string" ? raw : "";
+    machineHashDraft.value = typeof raw === 'string' ? raw : '';
     return;
   }
-  machineHashDraft.value = "";
+  machineHashDraft.value = '';
 };
 
-watch(machineInstance, syncMachineHashFromNode, { immediate: true, deep: true });
+watch(machineInstance, syncMachineHashFromNode, {
+  immediate: true,
+  deep: true,
+});
 
 const syncMachineHash = () => {
   const node = props.node as AbstractNode & {
@@ -459,17 +555,19 @@ const syncMachineHash = () => {
   };
   const current = node.machineInstance;
   const next = {
-    ...(current && typeof current === "object" ? current as Record<string, unknown> : {}),
+    ...(current && typeof current === 'object'
+      ? (current as Record<string, unknown>)
+      : {}),
     hash: machineHashDraft.value.trim(),
   };
   node.machineInstance = next;
   node.onMachineUpdate?.(next);
 };
 
-const knowHowHashDraft = ref("");
+const knowHowHashDraft = ref('');
 const syncKnowHowHashFromNode = () => {
   const hash = knowHowValue.value?.hash;
-  knowHowHashDraft.value = typeof hash === "string" ? hash : "";
+  knowHowHashDraft.value = typeof hash === 'string' ? hash : '';
 };
 
 watch(knowHowValue, syncKnowHowHashFromNode, { immediate: true, deep: true });
@@ -477,11 +575,15 @@ watch(knowHowValue, syncKnowHowHashFromNode, { immediate: true, deep: true });
 const syncKnowHowHash = () => {
   const current = knowHowValue.value;
   const next: KnowHow = {
-    owner: current?.owner ?? "",
+    owner: current?.owner ?? '',
     hash: knowHowHashDraft.value.trim(),
-    inputs: current?.inputs ?? "",
-    outputs: current?.outputs ?? "",
-    licenseFee: current?.licenseFee ?? { amount: 0, currency: "", type: "budget" },
+    inputs: current?.inputs ?? '',
+    outputs: current?.outputs ?? '',
+    licenseFee: current?.licenseFee ?? {
+      amount: 0,
+      currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+      type: 'is',
+    },
   };
   applyKnowHow(next);
 };
@@ -503,17 +605,26 @@ const syncKnowHowHash = () => {
         :style="getBadgeStyleLeft(index, leftPorts.length)"
         @pointerdown.capture.stop.prevent="handleInputPointerDown($event, intf)"
         @pointerup.capture.stop.prevent="handleInputPointerUp($event, intf)"
-      >+</span>
+        >+</span
+      >
     </template>
 
     <!-- Standalone + badge for input nodes that have no left ports yet -->
     <span
       v-if="isInput && leftPorts.length === 0 && props.onInputConnector"
       class="output-add-badge"
-      :style="{ position: 'absolute', left: 'calc(0% - 26px)', top: '50%', transform: 'translate(0, -50%)' }"
-      @pointerdown.capture.stop.prevent="handleInputPointerDownStandalone($event)"
+      :style="{
+        position: 'absolute',
+        left: 'calc(0% - 26px)',
+        top: '50%',
+        transform: 'translate(0, -50%)',
+      }"
+      @pointerdown.capture.stop.prevent="
+        handleInputPointerDownStandalone($event)
+      "
       @pointerup.capture.stop.prevent="handleInputPointerUpStandalone($event)"
-    >+</span>
+      >+</span
+    >
 
     <template v-for="(intf, index) in rightPorts" :key="intf.id">
       <NodeInterfaceView
@@ -526,9 +637,12 @@ const syncKnowHowHash = () => {
         v-if="isOutput"
         class="output-add-badge"
         :style="getBadgeStyle(index, rightPorts.length)"
-        @pointerdown.capture.stop.prevent="handleOutputPointerDown($event, intf)"
+        @pointerdown.capture.stop.prevent="
+          handleOutputPointerDown($event, intf)
+        "
         @pointerup.capture.stop.prevent="handleOutputPointerUp($event, intf)"
-      >+</span>
+        >+</span
+      >
     </template>
 
     <NodeInterfaceView
@@ -565,7 +679,13 @@ const syncKnowHowHash = () => {
         @input="syncTitle"
         @blur="syncTitle"
       />
-      <button v-if="props.onDelete" class="delete-btn" type="button" title="Delete" @click.stop="props.onDelete?.()">
+      <button
+        v-if="props.onDelete"
+        class="delete-btn"
+        type="button"
+        title="Delete"
+        @click.stop="props.onDelete?.()"
+      >
         ×
       </button>
     </div>
@@ -590,8 +710,13 @@ const syncKnowHowHash = () => {
               @blur="saveOrigin"
             />
           </template>
-          <button v-else type="button" class="field-value" @click.stop="startEditOrigin">
-            {{ readFields().origin || "-" }}
+          <button
+            v-else
+            type="button"
+            class="field-value"
+            @click.stop="startEditOrigin"
+          >
+            {{ readFields().origin || '-' }}
           </button>
         </div>
         <div class="field-row">
@@ -607,7 +732,12 @@ const syncKnowHowHash = () => {
               @blur="saveInputQuantity"
             />
           </template>
-          <button v-else type="button" class="field-value" @click.stop="startEditInputQuantity">
+          <button
+            v-else
+            type="button"
+            class="field-value"
+            @click.stop="startEditInputQuantity"
+          >
             {{ readFields().inputQuantity ?? 0 }}
           </button>
         </div>
@@ -648,7 +778,12 @@ const syncKnowHowHash = () => {
               @blur="saveOutputKg"
             />
           </template>
-          <button v-else type="button" class="field-value" @click.stop="startEditOutputKg">
+          <button
+            v-else
+            type="button"
+            class="field-value"
+            @click.stop="startEditOutputKg"
+          >
             {{ readFields().outputKg ?? 1 }}
           </button>
         </div>
@@ -664,8 +799,13 @@ const syncKnowHowHash = () => {
               @blur="saveDestination"
             />
           </template>
-          <button v-else type="button" class="field-value" @click.stop="startEditDestination">
-            {{ readFields().destination || "-" }}
+          <button
+            v-else
+            type="button"
+            class="field-value"
+            @click.stop="startEditDestination"
+          >
+            {{ readFields().destination || '-' }}
           </button>
         </div>
       </template>
@@ -743,7 +883,12 @@ const syncKnowHowHash = () => {
             @blur="saveQuantity"
           />
         </template>
-        <button v-else type="button" class="field-value" @click.stop="startEditQuantity">
+        <button
+          v-else
+          type="button"
+          class="field-value"
+          @click.stop="startEditQuantity"
+        >
           {{ readFields().quantity ?? 0 }}
         </button>
       </div>
@@ -762,8 +907,13 @@ const syncKnowHowHash = () => {
             @blur="saveDuration"
           />
         </template>
-        <button v-else type="button" class="field-value" @click.stop="startEditDuration">
-          {{ readFields().duration || "-" }}
+        <button
+          v-else
+          type="button"
+          class="field-value"
+          @click.stop="startEditDuration"
+        >
+          {{ readFields().duration || '-' }}
         </button>
       </div>
       <div class="field-row">

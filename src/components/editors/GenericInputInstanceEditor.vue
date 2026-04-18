@@ -7,12 +7,16 @@
       label="quantity (grams)"
       type="number"
     />
-    <BasicInput
-      v-model="value.instance"
-      label="hash"
-      default-value=""
-      @focus="switchToTab('tm-list')"
-    />
+    <q-input v-model="value.instance" label="hash" stack-label>
+      <template #append>
+        <q-icon
+          name="inventory_2"
+          class="cursor-pointer"
+          title="Open List"
+          @click.stop="switchToTab('tm-list')"
+        />
+      </template>
+    </q-input>
   </template>
 
   <template v-else>

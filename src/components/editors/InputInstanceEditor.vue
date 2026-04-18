@@ -1,13 +1,10 @@
 <template>
-  <q-select
-    v-model="type"
-    :options="typeOptions"
-    label="type"
-    dense
-    outlined
-  />
+  <q-select v-model="type" :options="typeOptions" label="type" dense outlined />
   <LocalInputInstanceEditor v-if="type === 'local'" v-model="value" />
-  <TransportedInputInstanceEditor v-if="type === 'transported'" v-model="value" />
+  <TransportedInputInstanceEditor
+    v-if="type === 'transported'"
+    v-model="value"
+  />
 </template>
 
 <script setup lang="ts">
@@ -15,7 +12,11 @@ import { InputInstance } from '@trace.market/types';
 import LocalInputInstanceEditor from './LocalInputInstanceEditor.vue';
 import TransportedInputInstanceEditor from './TransportedInputInstanceEditor.vue';
 import { ref, watch } from 'vue';
-import { clone, defaultLocalInputInstance, defaultTransportedInputInstance } from './defaults';
+import {
+  clone,
+  defaultLocalInputInstance,
+  defaultTransportedInputInstance,
+} from './defaults';
 
 const props = defineProps<{ modelValue: InputInstance }>();
 const emit = defineEmits(['update:modelValue']);

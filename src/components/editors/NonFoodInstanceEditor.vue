@@ -83,12 +83,7 @@ const processTypeFactory: { [type: string]: Process } = {};
 const DEFAULT_NON_FOOD_PROCESS = 'assembling';
 
 const processTypes = computed(() => {
-  const names = schemaStore
-    .getAllTypeNames()
-    .filter((name) => name.endsWith('Process'));
-  const derived = names.map((name) =>
-    name.replace(/Process$/, '').toLowerCase()
-  );
+  const derived = schemaStore.getProcessTypeOptions();
   const fallback = [
     'assembling',
     'printing',

@@ -32,7 +32,8 @@
         </div>
         <div v-else class="text-caption text-grey-7">
           Set <span class="text-weight-bold">VITE_AUTH0_DOMAIN</span> and
-          <span class="text-weight-bold">VITE_AUTH0_CLIENT_ID</span> to enable Auth0.
+          <span class="text-weight-bold">VITE_AUTH0_CLIENT_ID</span> to enable
+          Auth0.
         </div>
 
         <q-input
@@ -55,12 +56,7 @@
             Using email: {{ emailAuth.email }}
           </div>
 
-          <q-input
-            v-model="accountCode"
-            label="Account code"
-            outlined
-            dense
-          />
+          <q-input v-model="accountCode" label="Account code" outlined dense />
 
           <div class="row q-gutter-sm">
             <q-btn
@@ -96,12 +92,7 @@
           />
 
           <div class="text-caption text-grey-7">NFT Transfer (relayed)</div>
-          <q-input
-            v-model="nftTokenId"
-            label="Token ID"
-            outlined
-            dense
-          />
+          <q-input v-model="nftTokenId" label="Token ID" outlined dense />
           <q-input
             v-model="nftRecipient"
             label="Recipient (email or address)"
@@ -119,7 +110,9 @@
             color="primary"
             @click="handleTransferNft"
             :loading="walletBusy"
-            :disable="!emailAuth.email || !nftTokenId || !nftRecipient || !nftContract"
+            :disable="
+              !emailAuth.email || !nftTokenId || !nftRecipient || !nftContract
+            "
           />
 
           <div v-if="walletStatus" class="text-caption text-grey-6">
@@ -168,8 +161,8 @@ const auth0SecureOrigin =
   window.location.protocol === 'https:' ||
   window.location.hostname === 'localhost' ||
   window.location.hostname === '127.0.0.1';
-const auth0Ready = computed(
-  () => Boolean(auth0Domain && auth0ClientId && auth0SecureOrigin)
+const auth0Ready = computed(() =>
+  Boolean(auth0Domain && auth0ClientId && auth0SecureOrigin)
 );
 let loginWithPopup: (params?: any) => Promise<void> = async () => {
   throw new Error('Auth0 is not available on this origin');
@@ -309,7 +302,9 @@ async function handleFetchAddress() {
       code: accountCode.value,
       walletAddress: address,
     });
-    walletStatus.value = address ? 'Wallet address loaded.' : 'No address found.';
+    walletStatus.value = address
+      ? 'Wallet address loaded.'
+      : 'No address found.';
   } catch (error) {
     walletStatus.value = 'Failed to fetch wallet address.';
   } finally {
@@ -359,5 +354,4 @@ watch(
   },
   { immediate: true }
 );
-
 </script>

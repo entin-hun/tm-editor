@@ -67,6 +67,11 @@ function getDataTypeFromFieldType(fieldType) {
   return null;
 }
 
+function getStringLiteralExamples(fieldType) {
+  const matches = [...fieldType.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  return Array.from(new Set(matches));
+}
+
 function mergeDescriptions(descriptions, interfaces) {
   const merged = { ...descriptions };
   const addedFields = [];
@@ -94,6 +99,13 @@ function mergeDescriptions(descriptions, interfaces) {
       if (!mergedField.dataType) {
         const inferred = getDataTypeFromFieldType(field.type);
         if (inferred) mergedField.dataType = inferred;
+      }
+
+      if (!mergedField.examples || mergedField.examples.length === 0) {
+        const literalExamples = getStringLiteralExamples(field.type);
+        if (literalExamples.length > 0) {
+          mergedField.examples = literalExamples;
+        }
       }
 
       fields[field.name] = mergedField;
@@ -169,6 +181,14 @@ function main() {
   );
   fs.writeFileSync(outputPath, JSON.stringify(merged, null, 2));
   console.log(`Merged schema written to ${outputPath}`);
+
+  const typesIndexOutput = path.resolve(
+    projectRoot,
+    'public',
+    'types-index.d.ts'
+  );
+  fs.writeFileSync(typesIndexOutput, typeSource);
+  console.log(`Types index copied to ${typesIndexOutput}`);
 
   const reportPath = path.resolve(
     projectRoot,

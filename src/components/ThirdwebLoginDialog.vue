@@ -13,27 +13,91 @@
           Social providers (require enabling in Thirdweb dashboard).
         </div>
         <div class="row q-gutter-sm">
-          <q-btn label="Google" icon="google" color="primary" flat @click="connectWithSocial('google')" :loading="socialLoading" />
-          <q-btn label="Apple" icon="apple" color="primary" flat @click="connectWithSocial('apple')" :loading="socialLoading" />
-          <q-btn label="Facebook" icon="facebook" color="primary" flat @click="connectWithSocial('facebook')" :loading="socialLoading" />
-          <q-btn label="Discord" icon="discord" color="primary" flat @click="connectWithSocial('discord')" :loading="socialLoading" />
-          <q-btn label="GitHub" icon="code" color="primary" flat @click="connectWithSocial('github')" :loading="socialLoading" />
-          <q-btn label="X" icon="alternate_email" color="primary" flat @click="connectWithSocial('x')" :loading="socialLoading" />
-          <q-btn label="Telegram" icon="send" color="primary" flat @click="connectWithSocial('telegram')" :loading="socialLoading" />
-          <q-btn label="Line" icon="chat" color="primary" flat @click="connectWithSocial('line')" :loading="socialLoading" />
-          <q-btn label="Twitch" icon="videogame_asset" color="primary" flat @click="connectWithSocial('twitch')" :loading="socialLoading" />
-          <q-btn label="Coinbase" icon="account_balance" color="primary" flat @click="connectWithSocial('coinbase')" :loading="socialLoading" />
+          <q-btn
+            label="Google"
+            icon="google"
+            color="primary"
+            flat
+            @click="connectWithSocial('google')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Apple"
+            icon="apple"
+            color="primary"
+            flat
+            @click="connectWithSocial('apple')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Facebook"
+            icon="facebook"
+            color="primary"
+            flat
+            @click="connectWithSocial('facebook')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Discord"
+            icon="discord"
+            color="primary"
+            flat
+            @click="connectWithSocial('discord')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="GitHub"
+            icon="code"
+            color="primary"
+            flat
+            @click="connectWithSocial('github')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="X"
+            icon="alternate_email"
+            color="primary"
+            flat
+            @click="connectWithSocial('x')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Telegram"
+            icon="send"
+            color="primary"
+            flat
+            @click="connectWithSocial('telegram')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Line"
+            icon="chat"
+            color="primary"
+            flat
+            @click="connectWithSocial('line')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Twitch"
+            icon="videogame_asset"
+            color="primary"
+            flat
+            @click="connectWithSocial('twitch')"
+            :loading="socialLoading"
+          />
+          <q-btn
+            label="Coinbase"
+            icon="account_balance"
+            color="primary"
+            flat
+            @click="connectWithSocial('coinbase')"
+            :loading="socialLoading"
+          />
         </div>
 
         <q-separator />
 
-        <q-input
-          v-model="email"
-          label="Email"
-          outlined
-          dense
-          type="email"
-        />
+        <q-input v-model="email" label="Email" outlined dense type="email" />
         <div class="row q-gutter-sm">
           <q-btn
             label="Send Code"
@@ -88,7 +152,10 @@ const socialLoading = ref(false);
 
 const wallet = inAppWallet();
 
-async function connectWalletWith(strategy: string, params: Record<string, unknown>) {
+async function connectWalletWith(
+  strategy: string,
+  params: Record<string, unknown>
+) {
   const account = await wallet.connect({
     client: accountStore.client,
     chain: accountStore.chain,
@@ -129,7 +196,9 @@ async function connectWithSocial(
   } catch (error) {
     console.error('connectWithSocial error:', error);
     $q.notify({
-      message: `Web2 login failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Web2 login failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
       color: 'negative',
     });
   } finally {
@@ -168,7 +237,9 @@ async function connectWithEmail() {
     onDialogHide();
   } catch (error) {
     $q.notify({
-      message: `Email login failed: ${error instanceof Error ? error.message : String(error)}`,
+      message: `Email login failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
       color: 'negative',
     });
   } finally {

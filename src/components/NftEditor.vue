@@ -10,12 +10,7 @@
         >
           <template #actions>
             <div class="row items-center q-gutter-sm">
-              <q-btn-dropdown
-                ref="walletDropdownRef"
-                flat
-                padding="0"
-                rounded
-              >
+              <q-btn-dropdown ref="walletDropdownRef" flat padding="0" rounded>
                 <template v-slot:label>
                   <span
                     style="
@@ -25,9 +20,15 @@
                     "
                   >
                     {{
-                      accountStore.account?.address ||
-                      emailAuthStore.email ||
-                      'Connect'
+                      connectedWalletType
+                        ? `${connectedWalletType}: ${(
+                            accountStore.account?.address || ''
+                          ).slice(0, 6)}...${(
+                            accountStore.account?.address || ''
+                          ).slice(-4)}`
+                        : accountStore.account?.address ||
+                          emailAuthStore.email ||
+                          'Connect'
                     }}
                   </span>
                 </template>
@@ -66,29 +67,54 @@
                       v-close-popup
                     />
                     <div class="text-caption text-grey-6">
-                      Stores a verified login locally and creates a wallet from it.
+                      Stores a verified login locally and creates a wallet from
+                      it.
                     </div>
 
-                    <div v-if="accountStore.account?.address" class="row items-center q-gutter-sm">
-                      <div class="text-caption text-grey-6">Wallet connected</div>
-                      <q-btn
-                        icon="content_copy"
-                        @click="
-                          accountStore.account?.address &&
-                            copyToClipboard(accountStore.account.address)
-                        "
-                        flat
-                        dense
-                        round
-                      />
+                    <div
+                      v-if="accountStore.account?.address"
+                      class="column q-gutter-xs"
+                    >
+                      <div class="text-caption text-grey-6">
+                        Wallet connected
+                      </div>
+                      <div class="text-caption text-grey-5">
+                        {{ connectedWalletType || 'Unknown Wallet' }}
+                      </div>
+                      <div class="row items-center q-gutter-sm">
+                        <q-btn
+                          icon="content_copy"
+                          @click="
+                            accountStore.account?.address &&
+                              copyToClipboard(accountStore.account.address)
+                          "
+                          flat
+                          dense
+                          round
+                          size="sm"
+                        />
+                        <span class="text-caption text-grey-6"
+                          >{{
+                            (accountStore.account?.address || '').slice(0, 10)
+                          }}...{{
+                            (accountStore.account?.address || '').slice(-8)
+                          }}</span
+                        >
+                      </div>
                     </div>
-                    <div v-if="accountStore.account?.address" class="row q-gutter-sm">
+                    <div
+                      v-if="accountStore.account?.address"
+                      class="row q-gutter-sm"
+                    >
                       <q-btn
                         label="Disconnect Wallet"
                         color="negative"
                         flat
                         rounded
-                        @click="walletDisconnect.execute()"
+                        @click="
+                          disconnectAppKit();
+                          walletDisconnect.execute();
+                        "
                         v-close-popup
                       />
                     </div>
@@ -141,33 +167,28 @@
       </div>
     </div>
 
-    <div class="nft-editor-right" :class="{ 'is-open': rightPanelOpen }">
+    <div
+      class="nft-editor-right"
+      :class="{ 'is-open': rightPanelOpen, 'is-lines': rightTab === 'lines' }"
+    >
       <div v-if="rightPanelOpen" class="nft-editor-right-content">
         <div class="nft-editor-right-header">
           <div class="text-caption text-grey-5">{{ rightTabLabel }}</div>
           <q-btn flat dense icon="close" @click="closeRightPanel" />
         </div>
         <div class="nft-editor-right-body">
-          <div
-            v-if="rightTab === 'json'"
-            class="q-pa-md"
-            style="flex: 1; overflow: auto; min-height: 0"
-          >
-            <q-input
+          <div v-if="rightTab === 'json'" class="json-tab-container">
+            <textarea
               v-model="jsonText"
-              type="textarea"
-              filled
-              style="height: 100%; min-height: calc(100vh - 200px)"
-              :input-style="{
-                height: '100%',
-                minHeight: '100%',
-                fontFamily: 'monospace',
-              }"
+              class="json-textarea-native"
+              :class="{ 'has-error': hasJsonError }"
+              spellcheck="false"
               @blur="parseJson"
-              @update:model-value="onJsonInput"
-              :error="hasJsonError"
-              :error-message="jsonError"
+              @input="onJsonTextareaInput"
             />
+            <div v-if="hasJsonError" class="json-error-message">
+              {{ jsonError }}
+            </div>
           </div>
 
           <div
@@ -178,6 +199,14 @@
               v-model="value"
               @open-ai-settings="rightTab = 'ai'"
             />
+          </div>
+
+          <div
+            v-else-if="rightTab === 'lines'"
+            class="lines-tab-container"
+            @keydown.capture="handleLinesEnterNavigation"
+          >
+            <FlowEditor v-model="value" />
           </div>
 
           <div
@@ -225,7 +254,7 @@
 
       <div class="nft-editor-tabs">
         <q-tabs
-          v-model="rightTab"
+          :model-value="rightTab"
           vertical
           dense
           dark
@@ -238,45 +267,55 @@
             name="flow"
             icon="hub"
             label="Inputs"
+            @click="handleTabToggle('flow')"
           />
           <q-tab
             v-if="selectedTarget === 'instance'"
             name="lines"
             icon="schema"
             label="Lines"
+            @click="handleTabToggle('lines')"
           />
-          <q-tab name="ai" icon="psychology" label="AI" />
+          <q-tab
+            name="ai"
+            icon="psychology"
+            label="AI"
+            @click="handleTabToggle('ai')"
+          />
           <q-tab
             v-if="isAiConfigured && selectedTarget === 'instance'"
             name="eco"
             icon="eco"
             label="Eco"
+            @click="handleTabToggle('eco')"
           />
-          <q-tab name="share" icon="groups" label="Share" />
+          <q-tab
+            name="share"
+            icon="groups"
+            label="Share"
+            @click="handleTabToggle('share')"
+          />
           <q-tab
             v-if="accountStore.account"
             name="tm-list"
             icon="view_list"
             label="List"
+            @click="handleTabToggle('tm-list')"
           />
-          <q-tab name="json" icon="code" label="JSON" />
+          <q-tab
+            name="json"
+            icon="code"
+            label="JSON"
+            @click="handleTabToggle('json')"
+          />
           <q-tab
             v-if="decompositionStore.isWizardActive"
             name="wizard"
             icon="auto_fix_high"
             label="Wizard"
+            @click="handleTabToggle('wizard')"
           />
         </q-tabs>
-      </div>
-    </div>
-
-    <div v-if="rightTab === 'lines'" class="flow-overlay">
-      <div class="flow-overlay-header">
-        <div class="text-caption text-grey-5">Flow</div>
-        <q-btn flat dense icon="close" @click="closeRightPanel" />
-      </div>
-      <div class="flow-overlay-body">
-        <FlowEditor v-model="value" />
       </div>
     </div>
   </div>
@@ -316,6 +355,10 @@
   width: 520px;
 }
 
+.nft-editor-right.is-lines {
+  width: calc(100vw - 72px);
+}
+
 .nft-editor-right-content {
   flex: 1;
   min-width: 0;
@@ -336,6 +379,8 @@
 .nft-editor-right-body {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .nft-editor-tabs {
@@ -345,26 +390,51 @@
   height: 100%;
 }
 
-.flow-overlay {
-  position: fixed;
-  inset: 0;
-  background: #0e141a;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-}
-
-.flow-overlay-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.flow-overlay-body {
+.json-tab-container {
   flex: 1;
   min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.json-textarea-native {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  border: 1px solid #1f87ff;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.2858;
+  padding: 12px;
+  resize: none;
+  outline: none;
+}
+
+.json-textarea-native.has-error {
+  border-color: #ff5b5b;
+}
+
+.json-error-message {
+  color: #ff9090;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.lines-tab-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
 }
 </style>
 
@@ -400,7 +470,13 @@ import { useColonyStore } from 'src/stores/colony';
 import { useDecompositionStore } from 'src/stores/decomposition';
 import { useAsyncState } from '@vueuse/core';
 import { sha256 } from 'thirdweb/utils';
-import { initAppKit, openAppKitModal, openAppKitOnramp } from 'src/services/appkit';
+import {
+  initAppKit,
+  openAppKitModal,
+  openAppKitOnramp,
+  onAppKitAccount,
+  disconnectAppKit,
+} from 'src/services/appkit';
 import { Network } from '@colony/colony-js';
 import {
   estimateImpacts,
@@ -533,23 +609,32 @@ async function saveToSwarmFeed(target: string, payload: any) {
 
   const upload = await bee.uploadData(swarmBatchId, JSON.stringify(nextArray));
 
+  // Determine the correct feed index before writing.
+  // bee-js v7 FeedWriter.upload() throws (rather than defaulting to 0) when the
+  // feed doesn't exist yet.  We pre-read the feed to find the current index and
+  // pass it explicitly as a Bytes<8> Uint8Array so first-time saves always work.
+  let feedIndex: Uint8Array;
   try {
-    await writer.upload(swarmBatchId, upload.reference);
-  } catch (err: any) {
-    // 404 handling logic...
-    const is404 =
-      err?.status === 404 ||
-      err?.response?.status === 404 ||
-      err?.code === 404 ||
-      (typeof err?.message === 'string' &&
-        (err.message.includes('404') || err.message.includes('Not Found')));
-
-    if (is404) {
-      await writer.upload(swarmBatchId, upload.reference, { index: 0 });
-    } else {
-      throw err;
+    const reader = bee.makeFeedReader(feedType, topic, ownerHex);
+    const current = await reader.download();
+    // feedIndex from bee-js is a 16-char hex string representing a uint64
+    const currentIdxHex =
+      (current as any).feedIndex ?? '0000000000000000';
+    const nextIdx = BigInt('0x' + currentIdxHex) + 1n;
+    feedIndex = new Uint8Array(8);
+    let n = nextIdx;
+    for (let i = 7; i >= 0; i--) {
+      feedIndex[i] = Number(n & 0xffn);
+      n >>= 8n;
     }
+  } catch {
+    // Feed doesn't exist yet – start at index 0 (all-zero 8 bytes)
+    feedIndex = new Uint8Array(8);
   }
+
+  await writer.upload(swarmBatchId, upload.reference, {
+    index: feedIndex as any,
+  });
 
   if (!manifestReference) {
     const manifest = await bee.createFeedManifest(
@@ -565,6 +650,15 @@ async function saveToSwarmFeed(target: string, payload: any) {
   return manifestReference;
 }
 
+// Maps tm-editor target to DAO RegistryCategory (REGISTRY.md)
+function targetToRegistryCategory(
+  target: string
+): 'tools' | 'services' | 'products' | 'knowhow' | 'facilities' {
+  if (target === 'machine') return 'tools';
+  if (target === 'knowHow') return 'knowhow';
+  return 'products'; // 'instance' = food/non-food process output
+}
+
 // Updated signature to accept target
 async function upsertFeedArray(
   existing: unknown,
@@ -577,15 +671,23 @@ async function upsertFeedArray(
   const index = list.findIndex(
     (item: any) => item?.key === key && item?.target === currentTarget
   );
+  const existingEntry = index >= 0 ? list[index] : null;
+  const nowMs = Date.now();
   const entry = {
+    // Existing fields (kept for backward compatibility)
     key,
     target: currentTarget,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(nowMs).toISOString(),
     value: payload,
-    // Add colonyAddress at top level of entry for easier indexing?
-    // It's already in payload (value), but feed entry often wraps it.
-    // Let's keep it in value for consistency with current schema.
     colonyAddress: payload.colonyAddress,
+    // DAO Registry-compatible fields (REGISTRY.md RegistryItem)
+    id: existingEntry?.id ?? crypto.randomUUID(),
+    registryCategory: targetToRegistryCategory(currentTarget),
+    name: payload.type || payload.name || payload.title || currentTarget,
+    description: payload.description || '',
+    tags: Array.isArray(payload.tags) ? payload.tags : [],
+    createdAtMs: existingEntry?.createdAtMs ?? nowMs,
+    updatedAtMs: nowMs,
   };
   if (index >= 0) {
     list[index] = { ...list[index], ...entry };
@@ -762,6 +864,7 @@ const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
 const jsonText = ref('');
 const hasJsonError = ref(false);
 const jsonError = ref('');
+const connectedWalletType = ref<string | null>(null);
 
 const DEBUG_SAMPLE_INSTANCE = {
   category: 'food',
@@ -770,8 +873,8 @@ const DEBUG_SAMPLE_INSTANCE = {
   quantity: 1000,
   price: {
     amount: 0,
-    currency: '',
-    type: 'budget',
+    currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+    type: 'is',
   },
   iDs: [
     {
@@ -800,8 +903,8 @@ const DEBUG_SAMPLE_INSTANCE = {
           quantity: 0,
           price: {
             amount: 0,
-            currency: '',
-            type: 'budget',
+            currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+            type: 'is',
           },
           iDs: [],
           process: {
@@ -821,8 +924,8 @@ const DEBUG_SAMPLE_INSTANCE = {
           quantity: 0,
           price: {
             amount: 0,
-            currency: '',
-            type: 'budget',
+            currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+            type: 'is',
           },
           iDs: [],
           process: {
@@ -842,8 +945,8 @@ const DEBUG_SAMPLE_INSTANCE = {
           quantity: 0,
           price: {
             amount: 0,
-            currency: '',
-            type: 'budget',
+            currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+            type: 'is',
           },
           iDs: [],
           process: {
@@ -863,8 +966,8 @@ const DEBUG_SAMPLE_INSTANCE = {
           quantity: 0,
           price: {
             amount: 0,
-            currency: '',
-            type: 'budget',
+            currency: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71',
+            type: 'is',
           },
           iDs: [],
           process: {
@@ -949,8 +1052,8 @@ function setActiveJsonTarget(next: unknown) {
   value.value = next as Pokedex;
 }
 
-function syncJsonFromTarget() {
-  if (hasJsonError.value) return;
+function syncJsonFromTarget(force = false) {
+  if (hasJsonError.value && !force) return;
   const target = getActiveJsonTarget();
   const safe = stripBioFields(JSON.parse(JSON.stringify(target)));
   jsonText.value = JSON.stringify(safe, undefined, 2);
@@ -968,15 +1071,13 @@ provide('tabActions', {
     rightTab.value = tab;
   },
 });
-const rightPanelOpen = computed(
-  () => rightTab.value !== null && rightTab.value !== 'lines'
-);
+const rightPanelOpen = computed(() => rightTab.value !== null);
 const rightTabLabel = computed(() => {
   if (!rightTab.value) return 'Panel';
   const labels: Record<RightTab, string> = {
     ai: 'AI',
     flow: 'Inputs',
-    lines: 'Flow',
+    lines: 'Lines',
     eco: 'Eco',
     share: 'Share',
     'tm-list': 'List',
@@ -988,6 +1089,17 @@ const rightTabLabel = computed(() => {
 
 const closeRightPanel = () => {
   rightTab.value = null;
+};
+
+// Handle tab clicks to toggle on/off
+const handleTabToggle = (newTab: RightTab | null) => {
+  if (rightTab.value === newTab) {
+    // Clicking same tab again closes it
+    rightTab.value = null;
+  } else {
+    // Clicking different tab opens it
+    rightTab.value = newTab;
+  }
 };
 
 provide('pokedexActions', {
@@ -1021,6 +1133,93 @@ onMounted(async () => {
     console.warn('[AppKit] AppKit init failed', err);
   }
 
+  // Subscribe to AppKit account changes - this is the source of truth for wallet connection
+  const unsubAppKit = onAppKitAccount(
+    (info: { address: string; walletName: string } | null) => {
+      if (info) {
+        const currentAccount = (accountStore as any).account;
+        const sameAddress =
+          String(currentAccount?.address || '').toLowerCase() ===
+          String(info.address || '').toLowerCase();
+        const hasTxCapability =
+          !!currentAccount &&
+          typeof currentAccount.sendTransaction === 'function';
+
+        // Preserve an existing tx-capable Thirdweb signer for the same address.
+        if (!sameAddress || !hasTxCapability) {
+          (accountStore as any).account = {
+            address: info.address,
+            signMessage: async ({ message }: { message: any }) => {
+              try {
+                // @ts-ignore
+                const ethereum = window.ethereum;
+                if (!ethereum) throw new Error('No ethereum provider');
+
+                const providers = Array.isArray(ethereum.providers)
+                  ? [ethereum, ...ethereum.providers]
+                  : [ethereum];
+
+                let provider = ethereum;
+                for (const candidate of providers) {
+                  try {
+                    const accounts = (await candidate.request({
+                      method: 'eth_accounts',
+                    })) as string[];
+                    if (
+                      accounts?.some(
+                        (address) =>
+                          String(address).toLowerCase() ===
+                          String(info.address).toLowerCase()
+                      )
+                    ) {
+                      provider = candidate;
+                      break;
+                    }
+                  } catch {
+                    // keep checking other providers
+                  }
+                }
+
+                const accounts = await provider.request({
+                  method: 'eth_requestAccounts',
+                });
+                if (!accounts?.length) throw new Error('No accounts');
+                const msgHex =
+                  typeof message === 'object' && message.raw
+                    ? Array.from(message.raw as Uint8Array)
+                        .map((b: number) => b.toString(16).padStart(2, '0'))
+                        .join('')
+                    : message;
+                const sig = await provider.request({
+                  method: 'personal_sign',
+                  params: [
+                    typeof msgHex === 'string' && !msgHex.startsWith('0x')
+                      ? '0x' + msgHex
+                      : msgHex,
+                    info.address,
+                  ],
+                });
+                return sig;
+              } catch (e) {
+                throw e;
+              }
+            },
+          };
+        }
+        connectedWalletType.value = info.walletName;
+      } else {
+        (accountStore as any).account = undefined;
+        (accountStore as any).wallet = undefined;
+        connectedWalletType.value = null;
+      }
+    }
+  );
+
+  // Also check email wallet
+  if (emailAuthStore.email) {
+    connectedWalletType.value = 'Email Wallet';
+  }
+
   // Support hash-based routing: /#/?debugApplySample=1
   const hash = window.location.hash || '';
   const queryIndex = hash.indexOf('?');
@@ -1033,11 +1232,25 @@ onMounted(async () => {
     console.log('[NftEditor] Applying debug sample instance from query flag');
     applyInstance(DEBUG_SAMPLE_INSTANCE);
   }
+
+  // Store unsubscribe for cleanup
+  appKitUnsubscribe.value = unsubAppKit;
 });
+
+const appKitUnsubscribe = ref<(() => void) | null>(null);
 
 onUnmounted(() => {
   window.removeEventListener('ai-config-updated', refreshAiConfig);
+  appKitUnsubscribe.value?.();
 });
+
+watch(
+  () => emailAuthStore.email,
+  (email) => {
+    if (email) connectedWalletType.value = 'Email Wallet';
+    else if (!accountStore.account?.address) connectedWalletType.value = null;
+  }
+);
 
 // Watch for wizard activation
 watch(
@@ -1052,9 +1265,19 @@ watch(
 );
 
 // Watch for tab changes to update store
-watch(rightTab, (tab) => {
+watch(rightTab, (tab, prevTab) => {
   if (tab !== 'wizard') {
     decompositionStore.closeWizard();
+  }
+
+  // When leaving Lines, force-refresh JSON cache from the flow-backed model.
+  if (prevTab === 'lines') {
+    syncJsonFromTarget(true);
+  }
+
+  // When entering JSON, always show latest model state even if JSON had prior parse errors.
+  if (tab === 'json') {
+    syncJsonFromTarget(true);
   }
 });
 
@@ -1146,6 +1369,138 @@ function onJsonInput(newValue: string | number | null) {
   }
 }
 
+function onJsonTextareaInput(event: Event) {
+  const next = (event.target as HTMLTextAreaElement | null)?.value ?? '';
+  onJsonInput(next);
+}
+
+function getFocusableElements(container: ParentNode | null): HTMLElement[] {
+  if (!container) return [];
+  const nodes = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+    )
+  );
+  return nodes.filter((el) => {
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    if ((el as HTMLInputElement).readOnly) return false;
+    return true;
+  });
+}
+
+function pickNearest(currentRect: DOMRect, candidates: HTMLElement[]) {
+  if (candidates.length === 0) return null;
+  const cx = currentRect.left + currentRect.width / 2;
+  const cy = currentRect.top + currentRect.height / 2;
+  let best: { el: HTMLElement; score: number } | null = null;
+  for (const el of candidates) {
+    const r = el.getBoundingClientRect();
+    const ex = r.left + r.width / 2;
+    const ey = r.top + r.height / 2;
+    const dx = ex - cx;
+    const dy = ey - cy;
+    const score = Math.hypot(dx, dy);
+    if (!best || score < best.score) {
+      best = { el, score };
+    }
+  }
+  return best?.el || null;
+}
+
+function focusTopmostInOutputNode(
+  root: HTMLElement,
+  currentRect: DOMRect
+): boolean {
+  const resourceNodes = Array.from(
+    root.querySelectorAll<HTMLElement>('.resource-node')
+  );
+  const outputNodes = resourceNodes.filter((node) => {
+    const t = node.querySelector<HTMLInputElement>('.title-input')?.value || '';
+    return t.toLowerCase().includes('output');
+  });
+  if (outputNodes.length === 0) return false;
+  outputNodes.sort(
+    (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top
+  );
+  const topOutput = outputNodes[0];
+  const fields = getFocusableElements(topOutput);
+  if (fields.length === 0) return false;
+  fields.sort(
+    (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top
+  );
+  const nearest = pickNearest(currentRect, fields) || fields[0];
+  nearest.focus();
+  return true;
+}
+
+function handleLinesEnterNavigation(event: KeyboardEvent) {
+  const isForwardNext =
+    event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey);
+  if (!isForwardNext) return;
+
+  const target = event.target as HTMLElement | null;
+  if (!target) return;
+  if (
+    !(
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement
+    )
+  ) {
+    return;
+  }
+
+  const root = target.closest('.lines-tab-container') as HTMLElement | null;
+  const node = target.closest(
+    '.idef0-node, .resource-node'
+  ) as HTMLElement | null;
+  if (!root || !node) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const currentRect = target.getBoundingClientRect();
+  const nodeFields = getFocusableElements(node).filter((el) => el !== target);
+
+  // 1) Right within same node
+  const rightCandidates = nodeFields.filter((el) => {
+    const r = el.getBoundingClientRect();
+    const sameRow =
+      Math.abs(
+        r.top + r.height / 2 - (currentRect.top + currentRect.height / 2)
+      ) <= 20;
+    return sameRow && r.left > currentRect.left + 4;
+  });
+  if (rightCandidates.length > 0) {
+    rightCandidates.sort(
+      (a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left
+    );
+    rightCandidates[0].focus();
+    return;
+  }
+
+  // 2) Down within same node
+  const downCandidates = nodeFields.filter((el) => {
+    const r = el.getBoundingClientRect();
+    return r.top > currentRect.top + 4;
+  });
+  if (downCandidates.length > 0) {
+    downCandidates.sort((a, b) => {
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      const dy = ra.top - rb.top;
+      if (Math.abs(dy) > 6) return dy;
+      return ra.left - rb.left;
+    });
+    downCandidates[0].focus();
+    return;
+  }
+
+  // 3) Topmost input in output node
+  if (focusTopmostInOutputNode(root, currentRect)) return;
+}
+
 const to = ref<string | undefined>(accountStore.account?.address);
 const walletDropdownRef = ref<any>(null);
 const selectedWallet = ref<'walletConnect' | 'metamask'>('metamask');
@@ -1171,10 +1526,11 @@ const walletDisconnect = useAsyncState(
 );
 
 function mint() {
+  const mintContent = getMintContent();
   return api
     .post('/mint', {
       to: to.value,
-      content: value.value,
+      content: mintContent,
     })
     .then((result) =>
       $q.dialog({
@@ -1184,6 +1540,24 @@ function mint() {
         componentProps: { tokenId: result.data.tokenId },
       })
     );
+}
+
+function getMintContent(): Pokedex {
+  // If the user is editing JSON, prefer that exact payload when valid.
+  if (selectedTarget.value === 'instance') {
+    try {
+      const parsed = JSON.parse(jsonText.value);
+      const cleaned = stripBioFields(parsed) as Pokedex;
+      value.value = cleaned;
+      hasJsonError.value = false;
+      jsonError.value = '';
+      return cleaned;
+    } catch {
+      // Fallback to current model state when JSON is not parseable.
+    }
+  }
+
+  return stripBioFields(JSON.parse(JSON.stringify(value.value)));
 }
 
 async function resolveEmailWalletRecipient() {
@@ -1199,13 +1573,22 @@ async function resolveEmailWalletRecipient() {
 }
 
 function onMintClick() {
+  if (selectedTarget.value === 'instance' && hasJsonError.value) {
+    $q.notify({
+      message: 'JSON is invalid. Fix JSON errors before minting.',
+      color: 'negative',
+    });
+    return;
+  }
+
   if (accountStore.account === undefined) {
     if (emailAuthStore.email) {
       return resolveEmailWalletRecipient()
         .then((address) => {
           if (!address) {
             $q.notify({
-              message: 'Email wallet address not found. Open Auth0 login to fetch it.',
+              message:
+                'Email wallet address not found. Open Auth0 login to fetch it.',
               color: 'negative',
             });
             return;

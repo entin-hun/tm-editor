@@ -35,11 +35,38 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-const props = defineProps<{ modelValue: number | undefined; label?: string }>();
+const props = defineProps<{
+  modelValue: number | string | null | undefined;
+  label?: string;
+}>();
 const emit = defineEmits(['update:modelValue']);
 
 const date = ref<string | undefined>();
 const time = ref<string | undefined>();
+const syncingFromModel = ref(false);
+
+function toMillis(
+  value: number | string | null | undefined
+): number | undefined {
+  if (value === undefined || value === null) return undefined;
+
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return undefined;
+    return value < 1e12 ? value * 1000 : value;
+  }
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return undefined;
+
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    if (Number.isNaN(numeric)) return undefined;
+    return numeric < 1e12 ? numeric * 1000 : numeric;
+  }
+
+  const parsed = Date.parse(trimmed);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
 
 const hr = computed(() =>
   date.value !== undefined && time.value !== undefined
@@ -48,9 +75,43 @@ const hr = computed(() =>
 );
 
 watch(hr, () => {
+  if (syncingFromModel.value) return;
   const ts = Date.parse(`${date.value}T${time.value}`) / 1000;
   emit('update:modelValue', Number.isNaN(ts) ? undefined : ts);
 });
+
+watch(
+  () => props.modelValue,
+  (next) => {
+    syncingFromModel.value = true;
+    try {
+      const millis = toMillis(next);
+      if (millis === undefined) {
+        date.value = undefined;
+        time.value = undefined;
+        return;
+      }
+
+      const d = new Date(millis);
+      if (Number.isNaN(d.getTime())) {
+        date.value = undefined;
+        time.value = undefined;
+        return;
+      }
+
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      date.value = `${y}-${m}-${day}`;
+      time.value = `${hh}:${mm}`;
+    } finally {
+      syncingFromModel.value = false;
+    }
+  },
+  { immediate: true }
+);
 
 function clear() {
   date.value = undefined;

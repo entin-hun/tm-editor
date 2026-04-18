@@ -138,12 +138,7 @@ const processTypeFactory: { [type: string]: Process } = {
 };
 
 const processTypes = computed(() => {
-  const names = schemaStore
-    .getAllTypeNames()
-    .filter((name) => name.endsWith('Process'));
-  const derived = names.map((name) =>
-    name.replace(/Process$/, '').toLowerCase()
-  );
+  const derived = schemaStore.getProcessTypeOptions();
   return derived.length
     ? derived
     : ['printing', 'milling', 'freezedrying', 'blending', 'harvest'];

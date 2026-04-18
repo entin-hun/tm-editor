@@ -9,8 +9,16 @@
             dense
             stack-label
             :loading="isResolving"
-            @focus="switchToTab('tm-list')"
-          />
+          >
+            <template #append>
+              <q-icon
+                name="inventory_2"
+                class="cursor-pointer"
+                title="Open List"
+                @click.stop="switchToTab('tm-list')"
+              />
+            </template>
+          </q-input>
           <div class="text-caption text-grey-6 q-mb-md">
             Paste a know-how NFT hash to load its fields into this editor.
           </div>

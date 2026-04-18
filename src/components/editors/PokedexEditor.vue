@@ -97,6 +97,12 @@ const props = defineProps<{
   knowHowDraft?: KnowHow;
 }>();
 const schemaStore = useSchemaStore();
+const useMergedSchemaMode =
+  (typeof import.meta !== 'undefined' &&
+    ((import.meta as any)?.env?.VITE_USE_MERGED_SCHEMA === '1' ||
+      (import.meta as any)?.env?.VITE_USE_MERGED_SCHEMA === 'true' ||
+      !!(import.meta as any)?.env?.DEV)) ||
+  false;
 
 const value = ref(props.modelValue ?? clone(defaultPokedex));
 const machineDraft = ref(props.machineDraft ?? clone(defaultMachineInstance));
@@ -118,6 +124,9 @@ const emit = defineEmits([
 ]);
 
 async function fetchVersions() {
+  if (useMergedSchemaMode) {
+    return;
+  }
   loadingVersions.value = true;
   try {
     // Try to fetch from jsdelivr as it supports CORS and lists versions
@@ -142,6 +151,9 @@ async function fetchVersions() {
 watch(
   () => value.value.typesVersion,
   async (newVersion) => {
+    if (useMergedSchemaMode) {
+      return;
+    }
     if (newVersion) {
       await schemaStore.fetchVersion(newVersion);
     }

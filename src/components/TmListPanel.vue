@@ -99,22 +99,42 @@
             <q-card-section>
               <div class="row items-center q-mb-sm">
                 <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
-                <div v-if="account !== undefined">
+                <div
+                  v-if="account !== undefined"
+                  class="row items-center q-gutter-xs"
+                >
+                  <q-chip
+                    v-if="item.listing !== undefined"
+                    dense
+                    color="positive"
+                    text-color="white"
+                    icon="public"
+                    label="Publicly Listed"
+                  />
+                  <q-btn
+                    dense
+                    flat
+                    icon="tune"
+                    color="secondary"
+                    @click="openPriceDialog(item.tokenId, item.metadata, false, item.listing?.id ?? null)"
+                  >
+                    <q-tooltip>Edit listing price</q-tooltip>
+                  </q-btn>
                   <q-btn
                     v-if="item.listing !== undefined"
-                    fab-mini
-                    @click="cancelListing(item.tokenId, item.listing.id)"
-                    icon="close"
                     dense
                     color="negative"
+                    icon="remove_shopping_cart"
+                    label="De-list"
+                    @click="cancelListing(item.tokenId, item.listing.id)"
                   />
                   <q-btn
                     v-else
-                    fab-mini
-                    @click="createListing(item.tokenId, item.metadata)"
-                    icon="sell"
                     dense
                     color="primary"
+                    icon="sell"
+                    label="List"
+                    @click="createListing(item.tokenId, item.metadata)"
                   />
                 </div>
               </div>
@@ -223,22 +243,42 @@
             <q-card-section>
               <div class="row items-center q-mb-sm">
                 <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
-                <div v-if="account !== undefined">
+                <div
+                  v-if="account !== undefined"
+                  class="row items-center q-gutter-xs"
+                >
+                  <q-chip
+                    v-if="item.listing !== undefined"
+                    dense
+                    color="positive"
+                    text-color="white"
+                    icon="public"
+                    label="Publicly Listed"
+                  />
+                  <q-btn
+                    dense
+                    flat
+                    icon="tune"
+                    color="secondary"
+                    @click="openPriceDialog(item.tokenId, item.metadata, false, item.listing?.id ?? null)"
+                  >
+                    <q-tooltip>Edit listing price</q-tooltip>
+                  </q-btn>
                   <q-btn
                     v-if="item.listing !== undefined"
-                    fab-mini
-                    @click="cancelListing(item.tokenId, item.listing.id)"
-                    icon="close"
                     dense
                     color="negative"
+                    icon="remove_shopping_cart"
+                    label="De-list"
+                    @click="cancelListing(item.tokenId, item.listing.id)"
                   />
                   <q-btn
                     v-else
-                    fab-mini
-                    @click="createListing(item.tokenId, item.metadata)"
-                    icon="sell"
                     dense
                     color="primary"
+                    icon="sell"
+                    label="List"
+                    @click="createListing(item.tokenId, item.metadata)"
                   />
                 </div>
               </div>
@@ -343,22 +383,42 @@
             <q-card-section>
               <div class="row items-center q-mb-sm">
                 <div class="col text-subtitle2">Token #{{ item.tokenId }}</div>
-                <div v-if="account !== undefined">
+                <div
+                  v-if="account !== undefined"
+                  class="row items-center q-gutter-xs"
+                >
+                  <q-chip
+                    v-if="item.listing !== undefined"
+                    dense
+                    color="positive"
+                    text-color="white"
+                    icon="public"
+                    label="Publicly Listed"
+                  />
+                  <q-btn
+                    dense
+                    flat
+                    icon="tune"
+                    color="secondary"
+                    @click="openPriceDialog(item.tokenId, item.metadata, false, item.listing?.id ?? null)"
+                  >
+                    <q-tooltip>Edit listing price</q-tooltip>
+                  </q-btn>
                   <q-btn
                     v-if="item.listing !== undefined"
-                    fab-mini
-                    @click="cancelListing(item.tokenId, item.listing.id)"
-                    icon="close"
                     dense
                     color="negative"
+                    icon="remove_shopping_cart"
+                    label="De-list"
+                    @click="cancelListing(item.tokenId, item.listing.id)"
                   />
                   <q-btn
                     v-else
-                    fab-mini
-                    @click="createListing(item.tokenId, item.metadata)"
-                    icon="sell"
                     dense
                     color="primary"
+                    icon="sell"
+                    label="List"
+                    @click="createListing(item.tokenId, item.metadata)"
                   />
                 </div>
               </div>
@@ -394,6 +454,38 @@
           No know-how items found.
         </div>
       </q-expansion-item>
+
+      <q-dialog v-model="priceDialogOpen">
+        <q-card style="min-width: 420px; max-width: 92vw">
+          <q-card-section class="text-subtitle1"
+            >Edit Listing Price</q-card-section
+          >
+          <q-card-section class="column q-gutter-sm">
+            <q-input
+              v-model.number="priceDraft.amount"
+              type="number"
+              min="0"
+              label="amount"
+            />
+            <q-select
+              v-model="priceDraft.currency"
+              :options="CHIADO_CURRENCY_OPTIONS"
+              emit-value
+              map-options
+              label="currency"
+            />
+            <q-select
+              v-model="priceDraft.type"
+              :options="PRICE_TYPE_OPTIONS"
+              label="type"
+            />
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" v-close-popup />
+            <q-btn color="primary" label="Save" @click="savePriceDialog" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
   </div>
 </template>
@@ -403,8 +495,9 @@ import { useAsyncState } from '@vueuse/core';
 import { getOwnedNFTs } from 'thirdweb/extensions/erc721';
 import { getContract } from 'thirdweb';
 import { useAccountStore } from 'src/stores/account';
+import { storeToRefs } from 'pinia';
 import { copyToClipboard, useQuasar } from 'quasar';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { api } from 'src/boot/axios';
 import { Pokedex } from '@trace.market/types';
 import { useListingsStore } from 'src/stores/listings';
@@ -412,11 +505,61 @@ import { getAllListings, totalListings } from 'thirdweb/extensions/marketplace';
 import CreateListingDialog from './CreateListingDialog.vue';
 import CancelListingDialog from './CancelListingDialog.vue';
 import { getColonyNetworkClient, Network } from '@colony/colony-js';
-import { providers } from 'ethers';
+import { providers, utils } from 'ethers';
 import { Bee } from '@ethersphere/bee-js';
 
-const { chain, client, account } = useAccountStore();
+const accountStore = useAccountStore();
+const { account } = storeToRefs(accountStore);
 const $q = useQuasar();
+
+const env =
+  typeof import.meta !== 'undefined' && (import.meta as any)?.env
+    ? (import.meta as any).env
+    : {};
+const pickEnv = (...keys: string[]) => {
+  for (const key of keys) {
+    const value =
+      (env?.[key] as string | undefined) ??
+      ((process as any)?.env?.[key] as string | undefined);
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return '';
+};
+
+const nftContractAddress = pickEnv(
+  'VITE_NFT_CONTRACT',
+  'VITE_NEXT_PUBLIC_NFT_CONTRACT',
+  'NEXT_PUBLIC_NFT_CONTRACT',
+  'NFT_CONTRACT'
+);
+const marketplaceContractAddress = pickEnv(
+  'VITE_MARKETPLACE_CONTRACT',
+  'VITE_NEXT_PUBLIC_MARKETPLACE_CONTRACT',
+  'NEXT_PUBLIC_MARKETPLACE_CONTRACT',
+  'MARKETPLACE_CONTRACT'
+);
+const packageUrl = pickEnv('VITE_PACKAGE_URL', 'PACKAGE_URL');
+
+const CHIADO_CURRENCY_OPTIONS = [
+  { label: 'EURe', value: '0x7a47605930002CC2Cd2c3c408D1F33fc2a18aB71' },
+  { label: 'GBPe', value: '0x436AF2954BB436b6821Ab401112092e14CDBd546' },
+  { label: 'USDe', value: '0x8bf987c9d041176758FE9C1180885bD4DA011a5a' },
+];
+const PRICE_TYPE_OPTIONS = ['is', 'budget', '%', 'payin30days', 'payin60days'];
+const DEFAULT_CURRENCY = CHIADO_CURRENCY_OPTIONS[0].value;
+
+const priceDialogOpen = ref(false);
+const priceDialogTokenId = ref<bigint | null>(null);
+const priceDialogMetadata = ref<Pokedex | null>(null);
+const listAfterPriceSave = ref(false);
+const priceDialogCurrentListingId = ref<bigint | null>(null);
+const priceDraft = ref<{ amount: number; currency: string; type: string }>({
+  amount: 0,
+  currency: DEFAULT_CURRENCY,
+  type: 'is',
+});
 
 interface NftWithMetadata {
   tokenId: bigint;
@@ -425,8 +568,207 @@ interface NftWithMetadata {
   stringValues: string;
 }
 
+type OwnedNftLite = {
+  id: bigint;
+  blockNumber?: bigint;
+};
+
+async function getOwnedNftsFromTransferLogs(
+  ownerAddress: string,
+  contractAddress: string
+): Promise<OwnedNftLite[]> {
+  const rpcUrl = pickEnv(
+    'VITE_CHAIN_RPC',
+    'CHAIN_RPC',
+    'VITE_NEXT_PUBLIC_CHAIN_RPC',
+    'NEXT_PUBLIC_CHAIN_RPC'
+  );
+
+  const provider = rpcUrl
+    ? new providers.JsonRpcProvider(rpcUrl)
+    : (window as any)?.ethereum?.request
+    ? new providers.Web3Provider((window as any).ethereum, 'any')
+    : null;
+
+  if (!provider) return [];
+
+  const ownerTopic = utils.hexZeroPad(ownerAddress, 32);
+  const transferTopic = utils.id('Transfer(address,address,uint256)');
+
+  const [receivedLogs, sentLogs] = await Promise.all([
+    provider.getLogs({
+      address: contractAddress,
+      fromBlock: 0,
+      toBlock: 'latest',
+      topics: [transferTopic, null, ownerTopic],
+    }),
+    provider.getLogs({
+      address: contractAddress,
+      fromBlock: 0,
+      toBlock: 'latest',
+      topics: [transferTopic, ownerTopic],
+    }),
+  ]);
+
+  const latestOwnership = new Map<
+    string,
+    { owner: string; blockNumber: bigint; logIndex: number }
+  >();
+
+  [...receivedLogs, ...sentLogs]
+    .sort((left, right) => {
+      if (left.blockNumber !== right.blockNumber) {
+        return left.blockNumber - right.blockNumber;
+      }
+      return (left.logIndex || 0) - (right.logIndex || 0);
+    })
+    .forEach((log) => {
+      const tokenId = BigInt(log.topics?.[3] || '0x0').toString();
+      const to = `0x${String(log.topics?.[2] || '').slice(-40)}`.toLowerCase();
+      latestOwnership.set(tokenId, {
+        owner: to,
+        blockNumber: BigInt(log.blockNumber || 0),
+        logIndex: log.logIndex || 0,
+      });
+    });
+
+  const ownerLower = ownerAddress.toLowerCase();
+  return Array.from(latestOwnership.entries())
+    .filter(([, info]) => info.owner === ownerLower)
+    .map(([tokenId, info]) => ({
+      id: BigInt(tokenId),
+      blockNumber: info.blockNumber,
+    }));
+}
+
+async function getOwnedNftsFallback(
+  ownerAddress: string,
+  contractAddress?: string
+): Promise<OwnedNftLite[]> {
+  const chainId = Number((accountStore.chain as any)?.id || 10200);
+  const clientId = String((accountStore.client as any)?.clientId || '').trim();
+  const normalizedContract = String(contractAddress || '').trim();
+
+  if (normalizedContract) {
+    try {
+      const fromLogs = await getOwnedNftsFromTransferLogs(
+        ownerAddress,
+        normalizedContract
+      );
+      if (fromLogs.length > 0 || chainId === 10200) {
+        return fromLogs;
+      }
+    } catch (error) {
+      console.warn('[TmListPanel] Transfer-log fallback failed', error);
+    }
+  }
+
+  if (!clientId || chainId === 10200) {
+    return [];
+  }
+
+  const urls = [
+    normalizedContract
+      ? `https://${chainId}.insight.thirdweb.com/v1/tokens/erc721/${ownerAddress}?contractAddress=${encodeURIComponent(
+          normalizedContract
+        )}`
+      : '',
+    `https://${chainId}.insight.thirdweb.com/v1/tokens/erc721/${ownerAddress}`,
+  ].filter(Boolean);
+
+  let payload: {
+    data?: Array<{
+      collectionAddress?: string;
+      tokenId?: string;
+      balance?: string;
+    }>;
+  } | null = null;
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'x-client-id': clientId,
+          accept: 'application/json',
+        },
+      });
+      if (!response.ok) {
+        continue;
+      }
+      payload = (await response.json()) as {
+        data?: Array<{
+          collectionAddress?: string;
+          tokenId?: string;
+          balance?: string;
+        }>;
+      };
+      break;
+    } catch {
+      // try next URL pattern
+    }
+  }
+
+  if (!payload) {
+    console.warn(
+      '[TmListPanel] Insight fallback unavailable, returning empty owned NFT list'
+    );
+    return [];
+  }
+
+  const normalizedContractLower = normalizedContract.toLowerCase();
+
+  return (payload.data || [])
+    .filter((entry) => {
+      if (!normalizedContractLower) return true;
+      return (
+        String(entry.collectionAddress || '').toLowerCase() ===
+        normalizedContractLower
+      );
+    })
+    .filter((entry) => BigInt(String(entry.balance || '0')) > 0n)
+    .map((entry) => ({ id: BigInt(String(entry.tokenId || '0')) }));
+}
+
+function tokenIdToDecimalString(tokenId: unknown): string {
+  if (typeof tokenId === 'bigint') return tokenId.toString();
+  const raw = String(tokenId ?? '').trim();
+  if (!raw) return '';
+  try {
+    if (raw.startsWith('0x') || raw.startsWith('0X')) {
+      return BigInt(raw).toString(10);
+    }
+    if (/^\d+$/.test(raw)) return raw;
+    return BigInt(raw).toString(10);
+  } catch {
+    return raw;
+  }
+}
+
+function sameTokenId(left: unknown, right: unknown): boolean {
+  try {
+    return BigInt(String(left)) === BigInt(String(right));
+  } catch {
+    return String(left) === String(right);
+  }
+}
+
+async function fetchMetadataByTokenId(
+  tokenId: unknown
+): Promise<Pokedex | null> {
+  try {
+    const decimalTokenId = tokenIdToDecimalString(tokenId);
+    if (!decimalTokenId) return null;
+    const response = await api.get<{ content: Pokedex }>(
+      `/metadata/${decimalTokenId}`
+    );
+    return response.data.content;
+  } catch {
+    return null;
+  }
+}
+
 function fairFoodUrl(tokenId: bigint) {
-  return `${process.env.PACKAGE_URL}?tokenId=${tokenId}`;
+  return `${packageUrl}?tokenId=${tokenId}`;
 }
 
 function extractStringValues(obj: unknown): string[] {
@@ -447,32 +789,51 @@ function extractStringValues(obj: unknown): string[] {
 }
 
 const listRequest = useAsyncState<NftWithMetadata[]>(async () => {
-  if (!process.env.NFT_CONTRACT) {
-    throw new Error('NFT_CONTRACT is not configured');
-  }
-  if (!account) {
+  if (!account.value) {
     throw new Error('Connect wallet to view owned NFTs');
   }
 
-  const contract = getContract({
-    address: process.env.NFT_CONTRACT,
-    chain,
-    client,
-  });
+  let resolvedNftContractAddress = nftContractAddress;
+  if (!resolvedNftContractAddress && useListingsStore().listings.length > 0) {
+    const first = useListingsStore().listings[0] as any;
+    resolvedNftContractAddress = String(
+      first?.assetContractAddress || ''
+    ).trim();
+  }
 
-  const ownedNfts = await getOwnedNFTs({
-    contract,
-    owner: account.address,
-  });
+  let ownedNfts: OwnedNftLite[] = [];
+  if (resolvedNftContractAddress) {
+    const contract = getContract({
+      address: resolvedNftContractAddress,
+      chain: accountStore.chain,
+      client: accountStore.client,
+    });
+
+    try {
+      ownedNfts = await getOwnedNFTs({
+        contract,
+        owner: account.value.address,
+      });
+    } catch (err: any) {
+      console.warn('[TmListPanel] Primary owned-NFT lookup failed', err);
+      ownedNfts = await getOwnedNftsFallback(
+        account.value.address,
+        resolvedNftContractAddress
+      );
+    }
+  } else {
+    // Last-resort mode for builds where NFT_CONTRACT is not exposed.
+    ownedNfts = await getOwnedNftsFallback(account.value.address);
+  }
 
   // Fetch metadata for each NFT
   const nftsWithMetadata = await Promise.all(
     ownedNfts.map(async (nft) => {
       try {
-        const response = await api.get<{ content: Pokedex }>(
-          `/metadata/${nft.id}`
-        );
-        const metadata = response.data.content;
+        const metadata = await fetchMetadataByTokenId(nft.id);
+        if (!metadata) {
+          throw new Error(`metadata missing for token ${String(nft.id)}`);
+        }
         const stringValues = extractStringValues(metadata).join(', ');
 
         return {
@@ -519,7 +880,7 @@ type FeedLatest = {
 defineEmits(['load-entry', 'share']);
 
 const feedRequest = useAsyncState<FeedLatest[]>(async () => {
-  if (!account) {
+  if (!account.value) {
     return [];
   }
   if (!swarmApiUrl) {
@@ -527,7 +888,7 @@ const feedRequest = useAsyncState<FeedLatest[]>(async () => {
   }
 
   const bee = new Bee(swarmApiUrl);
-  const owner = account.address;
+  const owner = account.value.address;
 
   const results = await Promise.all(
     feedTopics.map(async (topicInfo) => {
@@ -630,12 +991,115 @@ function getEntryValues(valueObj: any): string {
     .join(', ');
 }
 
+function getInstancePrice(metadata: Pokedex | null) {
+  const instance = (metadata as any)?.instance;
+  return (instance?.price || null) as {
+    amount?: number | string;
+    currency?: string;
+    type?: string;
+  } | null;
+}
+
+function hasValidListingPrice(metadata: Pokedex | null): boolean {
+  const price = getInstancePrice(metadata);
+  if (!price) return false;
+  const amount = Number(price.amount);
+  const currency = String(price.currency || '').trim();
+  return (
+    Number.isFinite(amount) &&
+    amount >= 0 &&
+    /^0x[a-fA-F0-9]{40}$/.test(currency)
+  );
+}
+
+async function openPriceDialog(
+  tokenId: bigint,
+  metadata: Pokedex | null,
+  autoList = false,
+  currentListingId: bigint | null = null
+) {
+  let resolvedMetadata = metadata;
+  if (!resolvedMetadata) {
+    resolvedMetadata = await fetchMetadataByTokenId(tokenId);
+    if (resolvedMetadata) {
+      const target = (listRequest.state.value || []).find((item) =>
+        sameTokenId(item.tokenId, tokenId)
+      );
+      if (target) {
+        target.metadata = resolvedMetadata;
+        target.stringValues = extractStringValues(resolvedMetadata).join(', ');
+      }
+    }
+  }
+
+  if (!resolvedMetadata) {
+    $q.notify({
+      message: 'Cannot edit price: metadata not loaded',
+      color: 'negative',
+    });
+    return;
+  }
+
+  const current = getInstancePrice(resolvedMetadata);
+  const amount = Number(current?.amount);
+  priceDraft.value = {
+    amount: Number.isFinite(amount) ? amount : 0,
+    currency: String(current?.currency || DEFAULT_CURRENCY),
+    type: String(current?.type || 'is'),
+  };
+  priceDialogTokenId.value = tokenId;
+  priceDialogMetadata.value = resolvedMetadata;
+  listAfterPriceSave.value = autoList;
+  priceDialogCurrentListingId.value = currentListingId ?? null;
+  priceDialogOpen.value = true;
+}
+
+function applyPriceDraft() {
+  const metadata = priceDialogMetadata.value;
+  if (!metadata) return;
+  const instance =
+    (metadata as any).instance || ((metadata as any).instance = {});
+  instance.price = {
+    amount: Number(priceDraft.value.amount),
+    currency: String(priceDraft.value.currency || DEFAULT_CURRENCY),
+    type: String(priceDraft.value.type || 'is'),
+  };
+}
+
+function savePriceDialog() {
+  applyPriceDraft();
+  const metadata = priceDialogMetadata.value;
+  const tokenId = priceDialogTokenId.value;
+  const shouldList = listAfterPriceSave.value;
+  const existingListingId = priceDialogCurrentListingId.value;
+  priceDialogOpen.value = false;
+  listAfterPriceSave.value = false;
+  priceDialogCurrentListingId.value = null;
+
+  if (tokenId === null || !metadata) return;
+
+  if (existingListingId !== null) {
+    // Already listed — cancel the old listing then immediately relist with new price
+    $q.dialog({
+      component: CancelListingDialog,
+      componentProps: { tokenId, listingId: existingListingId },
+    }).onOk(() => {
+      createListing(tokenId, metadata);
+    });
+  } else if (shouldList) {
+    createListing(tokenId, metadata);
+  }
+}
+
 // Listings logic moved to bottom
 const listingsRequest = useAsyncState(async () => {
+  if (!marketplaceContractAddress) {
+    throw new Error('MARKETPLACE_CONTRACT is not configured');
+  }
   const contract = getContract({
-    address: process.env.MARKETPLACE_CONTRACT,
-    chain,
-    client,
+    address: marketplaceContractAddress,
+    chain: accountStore.chain,
+    client: accountStore.client,
   });
 
   const total = await totalListings({ contract });
@@ -647,13 +1111,18 @@ const listingsRequest = useAsyncState(async () => {
       count: total,
     });
 
-    useListingsStore().setAll(
-      allListings.filter(
-        (listing) =>
-          listing.assetContractAddress === process.env.NFT_CONTRACT &&
-          listing.status === 'ACTIVE'
-      )
-    );
+    const active = allListings.filter((listing) => listing.status === 'ACTIVE');
+    if (nftContractAddress) {
+      useListingsStore().setAll(
+        active.filter(
+          (listing) =>
+            listing.assetContractAddress.toLowerCase() ===
+            nftContractAddress.toLowerCase()
+        )
+      );
+    } else {
+      useListingsStore().setAll(active);
+    }
   }
 }, undefined);
 
@@ -728,8 +1197,22 @@ const instanceNfts = computed(() => {
   });
 });
 
-function createListing(tokenId: bigint, metadata: Pokedex | null) {
-  if (!metadata) {
+async function createListing(tokenId: bigint, metadata: Pokedex | null) {
+  let resolvedMetadata = metadata;
+  if (!resolvedMetadata) {
+    resolvedMetadata = await fetchMetadataByTokenId(tokenId);
+    if (resolvedMetadata) {
+      const target = (listRequest.state.value || []).find((item) =>
+        sameTokenId(item.tokenId, tokenId)
+      );
+      if (target) {
+        target.metadata = resolvedMetadata;
+        target.stringValues = extractStringValues(resolvedMetadata).join(', ');
+      }
+    }
+  }
+
+  if (!resolvedMetadata) {
     $q.notify({
       message: 'Cannot create listing: metadata not loaded',
       color: 'negative',
@@ -737,11 +1220,16 @@ function createListing(tokenId: bigint, metadata: Pokedex | null) {
     return;
   }
 
+  if (!hasValidListingPrice(resolvedMetadata)) {
+    void openPriceDialog(tokenId, resolvedMetadata, true);
+    return;
+  }
+
   $q.dialog({
     component: CreateListingDialog,
     componentProps: {
       tokenId,
-      metadata,
+      metadata: resolvedMetadata,
     },
   }).onOk(() => {
     reload();
