@@ -577,8 +577,16 @@ function onLoadEntry(entry: any) {
       selectedTarget.value = 'machine';
       machineDraft.value = newValue;
     } else if (entry.target === 'knowHow') {
+      // Apply the loaded KnowHow into the instance's process so Lines/FlowEditor shows it.
       selectedTarget.value = 'knowHow';
       knowHowDraft.value = newValue;
+      // Also write into value.value.instance.process.knowHow so FlowEditor reflects it.
+      const inst = value.value as any;
+      if (!inst.instance) inst.instance = {};
+      if (!inst.instance.process) inst.instance.process = { type: 'process', category: 'process', inputInstances: [], outputNodes: [] };
+      inst.instance.process.knowHow = JSON.parse(JSON.stringify(newValue));
+      // Navigate to Lines so the user can see the effect.
+      rightTab.value = 'lines';
     } else {
       selectedTarget.value = 'instance';
       value.value = newValue;

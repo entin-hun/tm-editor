@@ -5,6 +5,7 @@
         <!-- Feed actions -->
         <div class="row q-gutter-xs q-mb-sm">
           <q-btn
+            v-if="!loadedKey"
             flat dense no-caps size="sm"
             icon="save" label="Save"
             color="primary"
@@ -23,7 +24,7 @@
             <q-tooltip>Load reference from inventory feed</q-tooltip>
           </q-btn>
           <q-btn
-            v-if="loadedKey"
+            v-if="loadedKey && isDirty"
             flat dense no-caps size="sm"
             icon="upload" label="Update"
             color="warning"
@@ -125,7 +126,7 @@
 import { MachineInstance } from '@trace.market/types';
 import BasicInput from './BasicInput.vue';
 import { clone, defaultMachineInstance } from './defaults';
-import { ref, watch, inject, type Ref } from 'vue';
+import { ref, watch, inject, computed, type Ref } from 'vue';
 import HrEditor from './HrEditor.vue';
 import { api } from 'src/boot/axios';
 import { useQuasar } from 'quasar';
@@ -155,6 +156,10 @@ const isFeedLoading = ref(false);
 const showFeedPicker = ref(false);
 const feedPickerItems = ref<FeedEntry[]>([]);
 const loadedKey = ref<string | null>(null);
+const loadedSnapshot = ref<string | null>(null);
+const isDirty = computed(() =>
+  loadedSnapshot.value !== null && JSON.stringify(value.value) !== loadedSnapshot.value
+);
 
 async function onFeedSave() {
   isFeedSaving.value = true;
@@ -188,6 +193,7 @@ function onFeedPick(entry: FeedEntry) {
   }
   loadedKey.value = entry.key;
   hashReference.value = entry.key;
+  loadedSnapshot.value = JSON.stringify(value.value);
   $q.notify({ message: `Loaded feed entry #${entry.key}`, color: 'positive' });
 }
 
