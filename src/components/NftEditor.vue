@@ -198,6 +198,14 @@
               >
                 <q-tooltip>Load from Swarm feed</q-tooltip>
               </q-btn>
+              <q-btn
+                v-if="hasLoaded"
+                flat dense no-caps size="sm"
+                label="Clear" icon="clear" color="warning"
+                @click="clearAll"
+              >
+                <q-tooltip>Clear editor back to empty</q-tooltip>
+              </q-btn>
               <q-btn flat dense icon="close" @click="closeRightPanel" />
             </div>
           </template>
@@ -237,6 +245,41 @@
             @keydown.capture="handleLinesEnterNavigation"
           >
             <FlowEditor v-model="value" />
+            <div
+              class="row items-center q-gutter-xs q-pa-xs"
+              style="border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;"
+            >
+              <q-btn
+                flat padding="2px 6px" rounded size="sm" no-caps
+                :label="accountStore.account ? `${connectedWalletType || 'Wallet'}: ${(accountStore.account.address || '').slice(0, 6)}...${(accountStore.account.address || '').slice(-4)}` : 'Connect'"
+                @click="openAppKitModal"
+              />
+              <q-btn
+                label="Save"
+                @click="onSaveClick"
+                icon="save"
+                color="primary"
+                dense
+                no-caps
+                size="sm"
+              />
+              <q-input
+                v-if="accountStore.account !== undefined"
+                label="to"
+                v-model="to"
+                dense
+                style="max-width: 200px"
+              />
+              <q-btn
+                label="On-Chain NFT"
+                @click="onMintClick"
+                icon="send"
+                color="primary"
+                dense
+                no-caps
+                size="sm"
+              />
+            </div>
           </div>
 
           <div
@@ -578,7 +621,8 @@ function onLoadEntry(entry: any) {
       machineDraft.value = newValue;
     } else if (entry.target === 'knowHow') {
       // Apply the loaded KnowHow into the instance's process so Lines/FlowEditor shows it.
-      selectedTarget.value = 'knowHow';
+      // Keep selectedTarget='instance' so Lines tab stays open and JSON shows the full Pokedex.
+      selectedTarget.value = 'instance';
       knowHowDraft.value = newValue;
       // Replace value.value with a new object so FlowEditor's reference-equality watch fires.
       const current = JSON.parse(JSON.stringify(value.value)) as any;
@@ -593,6 +637,7 @@ function onLoadEntry(entry: any) {
       value.value = newValue;
     }
 
+    hasLoaded.value = true;
     $q.notify({
       message: 'Loaded entry from feed',
       color: 'positive',
@@ -907,8 +952,9 @@ type RightTab =
   | 'ai'
   | 'eco'
   | 'share';
-const rightTab = ref<RightTab | null>(null);
+const rightTab = ref<RightTab | null>('lines');
 const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
+const hasLoaded = ref(false);
 const jsonText = ref('');
 const hasJsonError = ref(false);
 const jsonError = ref('');
@@ -1312,10 +1358,23 @@ watch(
   }
 );
 
+function clearAll() {
+  value.value = clone(defaultPokedex);
+  knowHowDraft.value = clone(defaultKnowHow);
+  machineDraft.value = clone(defaultMachineInstance);
+  selectedTarget.value = 'instance';
+  hasLoaded.value = false;
+}
+
 // Watch for tab changes to update store
 watch(rightTab, (tab, prevTab) => {
   if (tab !== 'wizard') {
     decompositionStore.closeWizard();
+  }
+
+  // When entering Lines, always switch to instance target so JSON reflects the full graph.
+  if (tab === 'lines') {
+    selectedTarget.value = 'instance';
   }
 
   // When leaving Lines, force-refresh JSON cache from the flow-backed model.
