@@ -580,11 +580,12 @@ function onLoadEntry(entry: any) {
       // Apply the loaded KnowHow into the instance's process so Lines/FlowEditor shows it.
       selectedTarget.value = 'knowHow';
       knowHowDraft.value = newValue;
-      // Also write into value.value.instance.process.knowHow so FlowEditor reflects it.
-      const inst = value.value as any;
-      if (!inst.instance) inst.instance = {};
-      if (!inst.instance.process) inst.instance.process = { type: 'process', category: 'process', inputInstances: [], outputNodes: [] };
-      inst.instance.process.knowHow = JSON.parse(JSON.stringify(newValue));
+      // Replace value.value with a new object so FlowEditor's reference-equality watch fires.
+      const current = JSON.parse(JSON.stringify(value.value)) as any;
+      if (!current.instance) current.instance = {};
+      if (!current.instance.process) current.instance.process = { type: 'process', category: 'process', inputInstances: [], outputNodes: [] };
+      current.instance.process.knowHow = JSON.parse(JSON.stringify(newValue));
+      value.value = current;
       // Navigate to Lines so the user can see the effect.
       rightTab.value = 'lines';
     } else {
