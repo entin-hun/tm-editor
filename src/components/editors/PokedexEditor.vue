@@ -3,16 +3,17 @@
     <div class="q-pa-md">
       <div class="row items-center q-gutter-sm q-mb-sm">
         <div class="text-caption text-grey-5">What to Add?</div>
-        <q-btn-toggle
-          v-model="selectedTarget"
-          :options="targetOptions"
+        <q-btn
+          v-for="opt in targetOptions"
+          :key="opt.value"
+          :label="opt.label"
           dense
           no-caps
-          toggle-color="primary"
-          color="grey-9"
-          text-color="white"
           unelevated
-          class="edit-target-toggle"
+          :color="selectedTarget === opt.value ? 'primary' : 'grey-9'"
+          text-color="white"
+          class="q-px-sm"
+          @click="onTargetClick(opt.value as 'instance' | 'machine' | 'knowHow')"
         />
         <div class="col"></div>
         <slot name="actions" />
@@ -109,7 +110,7 @@ const machineDraft = ref(props.machineDraft ?? clone(defaultMachineInstance));
 const knowHowDraft = ref(props.knowHowDraft ?? clone(defaultKnowHow));
 const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
 const targetOptions = [
-  { label: 'Instance', value: 'instance' },
+  { label: 'Chain', value: 'instance' },
   { label: 'Tool', value: 'machine' },
   { label: 'Know-How', value: 'knowHow' },
 ];
@@ -121,7 +122,13 @@ const emit = defineEmits([
   'update:selectedTarget',
   'update:machineDraft',
   'update:knowHowDraft',
+  'chain-click',
 ]);
+
+function onTargetClick(val: 'instance' | 'machine' | 'knowHow') {
+  selectedTarget.value = val;
+  if (val === 'instance') emit('chain-click');
+}
 
 async function fetchVersions() {
   if (useMergedSchemaMode) {

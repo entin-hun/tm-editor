@@ -7,6 +7,7 @@
           v-model:selectedTarget="selectedTarget"
           v-model:machineDraft="machineDraft"
           v-model:knowHowDraft="knowHowDraft"
+          @chain-click="handleTabToggle('lines')"
         >
           <template #actions>
             <div class="row items-center q-gutter-sm">
@@ -173,8 +174,37 @@
     >
       <div v-if="rightPanelOpen" class="nft-editor-right-content">
         <div class="nft-editor-right-header">
-          <div class="text-caption text-grey-5">{{ rightTabLabel }}</div>
-          <q-btn flat dense icon="close" @click="closeRightPanel" />
+          <template v-if="rightTab === 'lines'">
+            <div class="text-caption text-grey-5">Lines</div>
+            <div class="row items-center q-gutter-xs">
+              <q-btn
+                flat dense no-caps size="sm"
+                label="KnowHow" icon="menu_book" color="primary"
+                @click="onLinesSaveKnowHow"
+              >
+                <q-tooltip>Save flow's knowHow node to Swarm feed</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat dense no-caps size="sm"
+                label="Instance" icon="inventory_2" color="positive"
+                @click="onLinesSaveInstance"
+              >
+                <q-tooltip>Save full instance to Swarm feed</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat dense no-caps size="sm"
+                label="Load" icon="cloud_download" color="grey-5"
+                @click="handleTabToggle('tm-list')"
+              >
+                <q-tooltip>Load from Swarm feed</q-tooltip>
+              </q-btn>
+              <q-btn flat dense icon="close" @click="closeRightPanel" />
+            </div>
+          </template>
+          <template v-else>
+            <div class="text-caption text-grey-5">{{ rightTabLabel }}</div>
+            <q-btn flat dense icon="close" @click="closeRightPanel" />
+          </template>
         </div>
         <div class="nft-editor-right-body">
           <div v-if="rightTab === 'json'" class="json-tab-container">
@@ -270,20 +300,13 @@
             @click="handleTabToggle('flow')"
           />
           <q-tab
-            v-if="selectedTarget === 'instance' || selectedTarget === 'knowHow'"
-            name="lines"
-            icon="schema"
-            label="Lines"
-            @click="handleTabToggle('lines')"
-          />
-          <q-tab
             name="ai"
             icon="psychology"
             label="AI"
             @click="handleTabToggle('ai')"
           />
           <q-tab
-            v-if="isAiConfigured && selectedTarget === 'instance'"
+            v-if="isAiConfigured"
             name="eco"
             icon="eco"
             label="Eco"
@@ -671,6 +694,26 @@ async function upsertFeedArray(
     list.push(entry);
   }
   return list;
+}
+
+async function onLinesSaveKnowHow() {
+  const process = (value.value.instance as any)?.process;
+  const knowHow = process?.knowHow ?? knowHowDraft.value;
+  try {
+    await saveToSwarmFeed('knowHow', stripBioFields(JSON.parse(JSON.stringify(knowHow))));
+    $q.notify({ message: 'KnowHow saved to feed', color: 'positive' });
+  } catch (e: unknown) {
+    $q.notify({ message: `Save failed: ${e instanceof Error ? e.message : String(e)}`, color: 'negative', icon: 'error' });
+  }
+}
+
+async function onLinesSaveInstance() {
+  try {
+    await saveToSwarmFeed('instance', stripBioFields(JSON.parse(JSON.stringify(value.value))));
+    $q.notify({ message: 'Instance saved to feed', color: 'positive' });
+  } catch (e: unknown) {
+    $q.notify({ message: `Save failed: ${e instanceof Error ? e.message : String(e)}`, color: 'negative', icon: 'error' });
+  }
 }
 
 async function onSaveClick() {
@@ -1264,7 +1307,7 @@ watch(
       next !== 'instance' &&
       (rightTab.value === 'flow' ||
         rightTab.value === 'eco' ||
-        (rightTab.value === 'lines' && next !== 'knowHow'))
+        rightTab.value === 'lines')
     ) {
       rightTab.value = 'json';
     }
