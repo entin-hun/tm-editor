@@ -123,13 +123,46 @@ export function useSwarmInventoryFeed() {
     );
   }
 
-  /** Load all feed items for the given target from the current wallet owner's feed. */
+  function localCacheKey(owner: string, topicName: string) {
+    return `tm-feed-local:${owner}:${topicName}`;
+  }
+
+  function readLocalCache(owner: string, topicName: string): FeedEntry[] {
+    try {
+      const raw = window.localStorage.getItem(localCacheKey(owner, topicName));
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as FeedEntry[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeLocalCache(owner: string, topicName: string, list: FeedEntry[]) {
+    try {
+      window.localStorage.setItem(localCacheKey(owner, topicName), JSON.stringify(list));
+    } catch {
+      // localStorage full – non-fatal
+    }
+  }
+
+  /**
+   * Load all feed items for the given target.
+   * Returns the local cache immediately if available (avoids Swarm indexing delay),
+   * then falls back to fetching from the Swarm feed reader.
+   */
   async function loadItems(target: string): Promise<FeedEntry[]> {
     if (!swarmApiUrl) throw new Error('SWARM_API_URL not configured');
     const owner = (accountStore.account as any)?.address as string | undefined;
     if (!owner) throw new Error('Wallet not connected');
-    const bee = getBee();
     const topicName = `tm-editor-${target}`;
+
+    // Serve from local cache first – avoids Swarm node indexing delay after a save
+    const cached = readLocalCache(owner, topicName);
+    if (cached.length > 0) return cached;
+
+    // Fall back to Swarm feed reader (e.g. different device / cache cleared)
+    const bee = getBee();
     const topic = bee.makeFeedTopic(topicName);
     const reader = bee.makeFeedReader('sequence', topic, owner);
     try {
@@ -137,10 +170,13 @@ export function useSwarmInventoryFeed() {
       if (current.reference) {
         const data = await bee.downloadData(current.reference as any);
         const parsed = JSON.parse(new TextDecoder().decode(data));
-        return Array.isArray(parsed) ? (parsed as FeedEntry[]) : [];
+        const items = Array.isArray(parsed) ? (parsed as FeedEntry[]) : [];
+        // Warm the local cache from Swarm
+        if (items.length > 0) writeLocalCache(owner, topicName, items);
+        return items;
       }
     } catch {
-      // Feed doesn't exist yet
+      // Feed doesn't exist yet on Swarm
     }
     return [];
   }
@@ -170,17 +206,21 @@ export function useSwarmInventoryFeed() {
     const writer = bee.makeFeedWriter(feedType, topic, signer);
 
     let nextIndexHex = '0000000000000000';
-    let existingArray: FeedEntry[] = [];
+    let existingArray: FeedEntry[] = readLocalCache(owner, topicName);
     try {
       const current = await reader.download();
       nextIndexHex =
         (current as any).feedIndexNext || '0000000000000000';
       if (current.reference) {
         const data = await bee.downloadData(current.reference as any);
-        existingArray = JSON.parse(new TextDecoder().decode(data));
+        const swarmList = JSON.parse(new TextDecoder().decode(data));
+        // Prefer the Swarm version if it has more entries (another device may have saved)
+        if (Array.isArray(swarmList) && swarmList.length >= existingArray.length) {
+          existingArray = swarmList;
+        }
       }
     } catch {
-      // First save – feed does not exist yet
+      // First save or node hasn't indexed yet – use local cache as baseline
     }
 
     const socIndex = BigInt('0x' + nextIndexHex);
@@ -223,6 +263,8 @@ export function useSwarmInventoryFeed() {
       index: nextIndexHex as any,
     });
 
+    // Cache the written array locally so Load works immediately (before Swarm node indexes)
+    writeLocalCache(owner, topicName, list);
     // Mark this feed as existing so TmListPanel knows to load it
     window.localStorage.setItem(
       `swarm:feed:${owner}:${topicName}`,
