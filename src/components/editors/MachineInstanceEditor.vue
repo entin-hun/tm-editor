@@ -183,10 +183,12 @@ async function onFeedLoadOpen() {
 }
 
 function onFeedPick(entry: FeedEntry) {
-  // Store a reference to the feed entry; do NOT copy content into form fields.
+  if (entry.value && typeof entry.value === 'object') {
+    value.value = entry.value as MachineInstance;
+  }
   loadedKey.value = entry.key;
   hashReference.value = entry.key;
-  $q.notify({ message: `Linked to feed entry #${entry.key}`, color: 'info' });
+  $q.notify({ message: `Loaded feed entry #${entry.key}`, color: 'positive' });
 }
 
 async function onFeedUpdate() {

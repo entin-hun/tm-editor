@@ -608,24 +608,40 @@ async function saveToSwarmFeed(target: string, payload: any) {
   const reader = bee.makeFeedReader(feedType, topic, ownerHex);
   const writer = bee.makeFeedWriter(feedType, topic, signer);
 
+  // Local cache key mirrors useSwarmInventoryFeed composable so both share the same cache.
+  const localKey = `tm-feed-local:${ownerHex}:${topicName}`;
+  function readLocalCache(): unknown[] {
+    try {
+      const raw = window.localStorage.getItem(localKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  function writeLocalCache(list: unknown[]) {
+    try { window.localStorage.setItem(localKey, JSON.stringify(list)); } catch { /* non-fatal */ }
+  }
+
   // Read the current feed to get the next SOC index and existing array.
-  // feedIndexNext is the 16-char hex string for the next SOC to write.
-  // On first save (feed doesn't exist) the reader.download() throws → start at 0.
+  // Seed existingArray from local cache so we don't lose items when Swarm 404s.
   let nextIndexHex = '0000000000000000';
-  let existingArray: unknown[] = [];
+  let existingArray: unknown[] = readLocalCache();
   try {
     const current = await reader.download();
     nextIndexHex = (current as any).feedIndexNext || '0000000000000000';
     if (current.reference) {
       try {
         const data = await bee.downloadData(current.reference as any);
-        existingArray = JSON.parse(new TextDecoder().decode(data));
+        const swarmList = JSON.parse(new TextDecoder().decode(data));
+        if (Array.isArray(swarmList) && swarmList.length >= existingArray.length) {
+          existingArray = swarmList;
+        }
       } catch {
         console.warn('[Swarm] Could not parse existing feed content');
       }
     }
   } catch {
-    // Feed does not exist yet – first save, index stays at 0.
+    // Feed does not exist yet or node hasn't indexed yet – use local cache.
   }
 
   const socIndex = BigInt('0x' + nextIndexHex);
@@ -644,6 +660,10 @@ async function saveToSwarmFeed(target: string, payload: any) {
   await writer.upload(swarmBatchId, upload.reference, {
     index: nextIndexHex as any,
   });
+
+  // Cache the written array locally so Load works immediately (before Swarm node indexes).
+  writeLocalCache(nextArray);
+  window.localStorage.setItem(`swarm:feed:${ownerHex}:${topicName}`, upload.reference.toString());
 
   return { topic: topicName, socIndex: socIndex.toString() };
 }
