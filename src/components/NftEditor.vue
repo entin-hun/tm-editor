@@ -574,7 +574,8 @@ async function saveToSwarmFeed(target: string, payload: any) {
   if (!swarmApiUrl || !swarmBatchId)
     throw new Error('Swarm config missing (SWARM_API_URL or SWARM_BATCH).');
 
-  const bee = new Bee(swarmApiUrl);
+  const swarmAuth = process.env.SWARM_AUTH as string | undefined;
+  const bee = new Bee(swarmApiUrl, swarmAuth ? { headers: { Authorization: swarmAuth } } : undefined);
   const signer = await getSwarmSigner();
   const ownerHex = accountStore.account.address as string;
   const topicName = `tm-editor-${target}`;

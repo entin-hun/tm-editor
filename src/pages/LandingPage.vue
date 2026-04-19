@@ -478,7 +478,8 @@ async function getSwarmSigner() {
 
 async function readFeed(topic: string): Promise<any[]> {
   if (!swarmApiUrl || !accountStore.account) return [];
-  const bee = new Bee(swarmApiUrl);
+  const swarmAuth = process.env.SWARM_AUTH as string | undefined;
+  const bee = new Bee(swarmApiUrl, swarmAuth ? { headers: { Authorization: swarmAuth } } : undefined);
   const t = bee.makeFeedTopic(topic);
   const reader = bee.makeFeedReader(
     'sequence',

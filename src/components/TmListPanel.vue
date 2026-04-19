@@ -116,7 +116,14 @@
                     flat
                     icon="tune"
                     color="secondary"
-                    @click="openPriceDialog(item.tokenId, item.metadata, false, item.listing?.id ?? null)"
+                    @click="
+                      openPriceDialog(
+                        item.tokenId,
+                        item.metadata,
+                        false,
+                        item.listing?.id ?? null
+                      )
+                    "
                   >
                     <q-tooltip>Edit listing price</q-tooltip>
                   </q-btn>
@@ -260,7 +267,14 @@
                     flat
                     icon="tune"
                     color="secondary"
-                    @click="openPriceDialog(item.tokenId, item.metadata, false, item.listing?.id ?? null)"
+                    @click="
+                      openPriceDialog(
+                        item.tokenId,
+                        item.metadata,
+                        false,
+                        item.listing?.id ?? null
+                      )
+                    "
                   >
                     <q-tooltip>Edit listing price</q-tooltip>
                   </q-btn>
@@ -400,7 +414,14 @@
                     flat
                     icon="tune"
                     color="secondary"
-                    @click="openPriceDialog(item.tokenId, item.metadata, false, item.listing?.id ?? null)"
+                    @click="
+                      openPriceDialog(
+                        item.tokenId,
+                        item.metadata,
+                        false,
+                        item.listing?.id ?? null
+                      )
+                    "
                   >
                     <q-tooltip>Edit listing price</q-tooltip>
                   </q-btn>
@@ -887,7 +908,8 @@ const feedRequest = useAsyncState<FeedLatest[]>(async () => {
     throw new Error('SWARM_API_URL is not configured');
   }
 
-  const bee = new Bee(swarmApiUrl);
+  const swarmAuth = process.env.SWARM_AUTH as string | undefined;
+  const bee = new Bee(swarmApiUrl, swarmAuth ? { headers: { Authorization: swarmAuth } } : undefined);
   const owner = account.value.address;
 
   const results = await Promise.all(
