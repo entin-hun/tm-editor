@@ -147,6 +147,15 @@
                 dense
                 no-caps
               />
+              <q-btn
+                v-if="loadedKey"
+                label="Update"
+                @click="onUpdateClick"
+                icon="upload"
+                color="warning"
+                dense
+                no-caps
+              />
               <q-input
                 v-if="accountStore.account !== undefined"
                 label="to"
@@ -259,6 +268,16 @@
                 @click="onSaveClick"
                 icon="save"
                 color="primary"
+                dense
+                no-caps
+                size="sm"
+              />
+              <q-btn
+                v-if="loadedKey"
+                label="Update"
+                @click="onUpdateClick"
+                icon="upload"
+                color="warning"
                 dense
                 no-caps
                 size="sm"
@@ -521,6 +540,7 @@ import {
   onMounted,
   onUnmounted,
   computed,
+  nextTick,
 } from 'vue';
 import { Pokedex, MachineInstance, KnowHow } from '@trace.market/types';
 import {
@@ -593,7 +613,7 @@ function promptWeb2ForOnchain(actionLabel: string) {
 }
 
 // Handler for loading entry from TmListPanel
-function onLoadEntry(entry: any) {
+async function onLoadEntry(entry: any) {
   if (entry && entry.value) {
     let newValue = JSON.parse(JSON.stringify(entry.value));
 
@@ -616,6 +636,7 @@ function onLoadEntry(entry: any) {
     // Update the relevant model based on the target in the entry if possible,
     // or just update 'value' if it matches selectedTarget?
     // The entry has 'target' property.
+    loadedKey.value = entry.key ?? null;
     if (entry.target === 'machine') {
       selectedTarget.value = 'machine';
       machineDraft.value = newValue;
@@ -638,6 +659,9 @@ function onLoadEntry(entry: any) {
     }
 
     hasLoaded.value = true;
+    // Force JSON sync immediately (watchers may not fire if selectedTarget didn't change).
+    await nextTick();
+    syncJsonFromTarget(true);
     $q.notify({
       message: 'Loaded entry from feed',
       color: 'positive',
@@ -646,7 +670,7 @@ function onLoadEntry(entry: any) {
   }
 }
 
-async function saveToSwarmFeed(target: string, payload: any) {
+async function saveToSwarmFeed(target: string, payload: any, forceNew = false) {
   if (!accountStore.account) throw new Error('Wallet not connected');
   if (!swarmApiUrl || !swarmBatchId)
     throw new Error('Swarm config missing (SWARM_API_URL or SWARM_BATCH).');
@@ -704,7 +728,8 @@ async function saveToSwarmFeed(target: string, payload: any) {
     existingArray,
     cleanPayload,
     target,
-    socIndex
+    socIndex,
+    forceNew
   );
 
   // Upload the new JSON blob; the returned reference is the SOC payload.
@@ -735,12 +760,13 @@ async function upsertFeedArray(
   existing: unknown,
   payload: any,
   targetOverride?: string,
-  socIndex?: bigint
+  socIndex?: bigint,
+  forceNew = false
 ) {
   const currentTarget = targetOverride || selectedTarget.value;
   const list = Array.isArray(existing) ? [...existing] : [];
   const key = deriveUpsertKey(payload) || (await hashJson(payload));
-  const index = list.findIndex(
+  const index = forceNew ? -1 : list.findIndex(
     (item: any) => item?.key === key && item?.target === currentTarget
   );
   const existingEntry = index >= 0 ? list[index] : null;
@@ -808,16 +834,48 @@ async function onSaveClick() {
   }
 
   try {
+    // Always create a new entry (strip any loaded key so key is derived fresh).
     const payload = getActivePayload();
-    await saveToSwarmFeed(selectedTarget.value, payload);
+    const fresh = { ...payload } as any;
+    delete fresh.key;
+    await saveToSwarmFeed(selectedTarget.value, fresh, true /* forceNew */);
+    loadedKey.value = null;
     $q.notify({
-      message: 'Saved to Swarm feed.',
+      message: 'Saved as new entry in feed.',
       color: 'positive',
     });
   } catch (error: unknown) {
     console.error('[Swarm] Save failed', error);
     $q.notify({
       message: `Save failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      color: 'negative',
+      icon: 'error',
+    });
+  }
+}
+
+async function onUpdateClick() {
+  if (!accountStore.account) {
+    if (emailAuthStore.email) { promptWeb2ForOnchain('Update'); return; }
+    if (walletDropdownRef.value?.show) { walletDropdownRef.value.show(); return; }
+    if (walletDropdownRef.value?.toggle) { walletDropdownRef.value.toggle(); return; }
+    return;
+  }
+
+  try {
+    // Update in-place: keep the loaded key so the existing list entry is replaced.
+    const payload = getActivePayload();
+    await saveToSwarmFeed(selectedTarget.value, payload, false /* upsert by key */);
+    $q.notify({
+      message: 'Updated existing entry in feed.',
+      color: 'positive',
+    });
+  } catch (error: unknown) {
+    console.error('[Swarm] Update failed', error);
+    $q.notify({
+      message: `Update failed: ${
         error instanceof Error ? error.message : String(error)
       }`,
       color: 'negative',
@@ -955,6 +1013,7 @@ type RightTab =
 const rightTab = ref<RightTab | null>('lines');
 const selectedTarget = ref<'instance' | 'machine' | 'knowHow'>('instance');
 const hasLoaded = ref(false);
+const loadedKey = ref<string | null>(null);
 const jsonText = ref('');
 const hasJsonError = ref(false);
 const jsonError = ref('');
