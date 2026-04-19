@@ -23,6 +23,38 @@
             Paste a know-how NFT hash to load its fields into this editor.
           </div>
         </template>
+
+        <!-- Feed actions -->
+        <div class="row q-gutter-xs q-mb-sm">
+          <q-btn
+            flat dense no-caps size="sm"
+            icon="save" label="Save"
+            color="primary"
+            :loading="isFeedSaving"
+            @click="onFeedSave"
+          >
+            <q-tooltip>Save full JSON to Swarm inventory feed</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat dense no-caps size="sm"
+            icon="cloud_download" label="Load"
+            color="grey-4"
+            :loading="isFeedLoading"
+            @click="onFeedLoadOpen"
+          >
+            <q-tooltip>Load fields from inventory feed</q-tooltip>
+          </q-btn>
+          <q-btn
+            v-if="loadedKey"
+            flat dense no-caps size="sm"
+            icon="upload" label="Update"
+            color="warning"
+            :loading="isFeedSaving"
+            @click="onFeedUpdate"
+          >
+            <q-tooltip>Update feed entry with current JSON</q-tooltip>
+          </q-btn>
+        </div>
         <template v-if="showFields">
           <BasicInput v-model="value.owner" label="owner" default-value="" />
           <BasicInput v-model="value.logoURL" label="logoURL" />
@@ -44,6 +76,39 @@
       </div>
     </q-expansion-item>
   </q-card>
+
+  <!-- Feed item picker dialog -->
+  <q-dialog v-model="showFeedPicker">
+    <q-card dark style="min-width:320px;max-width:480px">
+      <q-card-section class="row items-center q-pb-none">
+        <div class="text-h6">Load from feed</div>
+        <q-space />
+        <q-btn icon="close" flat round dense v-close-popup />
+      </q-card-section>
+      <q-card-section>
+        <div v-if="!feedPickerItems.length" class="text-grey-5 text-caption">
+          No items in your know-how feed yet.
+        </div>
+        <q-list v-else separator>
+          <q-item
+            v-for="entry in feedPickerItems"
+            :key="entry.key"
+            clickable
+            v-close-popup
+            @click="onFeedPick(entry)"
+          >
+            <q-item-section>
+              <q-item-label>{{ entry.name || entry.key }}</q-item-label>
+              <q-item-label caption>{{ entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : '' }}</q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-badge color="primary" :label="'#' + entry.key" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup lang="ts">
@@ -57,6 +122,7 @@ import { api } from 'src/boot/axios';
 import { useQuasar } from 'quasar';
 import JsonataInputsEditor from './JsonataInputsEditor.vue';
 import ProductInstanceEditor from './ProductInstanceEditor.vue';
+import { useSwarmInventoryFeed, type FeedEntry } from 'src/composables/useSwarmInventoryFeed';
 
 const props = defineProps<{
   modelValue: KnowHow | undefined;
@@ -77,6 +143,62 @@ const outputsTouched = ref(false);
 const outputsInstance = ref<ProductInstance>(clone(defaultProductInstance));
 let resolveTimer: number | null = null;
 const $q = useQuasar();
+
+const { saveItem, loadItems } = useSwarmInventoryFeed();
+const isFeedSaving = ref(false);
+const isFeedLoading = ref(false);
+const showFeedPicker = ref(false);
+const feedPickerItems = ref<FeedEntry[]>([]);
+const loadedKey = ref<string | null>(null);
+
+async function onFeedSave() {
+  isFeedSaving.value = true;
+  try {
+    const { key } = await saveItem('knowHow', JSON.parse(JSON.stringify(value.value)));
+    loadedKey.value = key;
+    hashReference.value = key;
+    $q.notify({ message: 'Know-how saved to feed', color: 'positive' });
+  } catch (e: unknown) {
+    $q.notify({ message: `Save failed: ${e instanceof Error ? e.message : String(e)}`, color: 'negative', icon: 'error' });
+  } finally {
+    isFeedSaving.value = false;
+  }
+}
+
+async function onFeedLoadOpen() {
+  isFeedLoading.value = true;
+  try {
+    feedPickerItems.value = await loadItems('knowHow');
+    showFeedPicker.value = true;
+  } catch (e: unknown) {
+    $q.notify({ message: `Load failed: ${e instanceof Error ? e.message : String(e)}`, color: 'negative', icon: 'error' });
+  } finally {
+    isFeedLoading.value = false;
+  }
+}
+
+function onFeedPick(entry: FeedEntry) {
+  // Populate all fields from the selected feed entry's full JSON.
+  if (entry.value && typeof entry.value === 'object') {
+    value.value = entry.value as KnowHow;
+  }
+  loadedKey.value = entry.key;
+  hashReference.value = entry.key;
+  $q.notify({ message: `Loaded #${entry.key} from feed`, color: 'positive' });
+}
+
+async function onFeedUpdate() {
+  if (!loadedKey.value) return;
+  isFeedSaving.value = true;
+  try {
+    await saveItem('knowHow', JSON.parse(JSON.stringify(value.value)), loadedKey.value);
+    $q.notify({ message: 'Feed entry updated', color: 'positive' });
+  } catch (e: unknown) {
+    $q.notify({ message: `Update failed: ${e instanceof Error ? e.message : String(e)}`, color: 'negative', icon: 'error' });
+  } finally {
+    isFeedSaving.value = false;
+  }
+}
 
 const { switchToTab } = inject('tabActions', {
   switchToTab: (tab: string) => {

@@ -476,6 +476,71 @@
         </div>
       </q-expansion-item>
 
+      <q-expansion-item label="Sites" icon="place" default-opened>
+        <div v-if="getFeedItems('tm-editor-site').length" class="row">
+          <q-card
+            v-for="(entry, idx) in getFeedItems('tm-editor-site')"
+            :key="'feed-site-' + idx"
+            flat
+            bordered
+            class="q-ma-sm col-12"
+            style="width: 100%"
+          >
+            <q-card-section>
+              <div class="row items-center justify-between">
+                <div class="text-caption text-grey-8">
+                  <q-icon name="rss_feed" size="xs" class="q-mr-xs" />
+                  {{
+                    entry.updatedAt
+                      ? new Date(entry.updatedAt).toLocaleString()
+                      : 'Unknown'
+                  }}
+                  <span
+                    v-if="entry.key"
+                    class="q-ml-sm text-weight-bold text-primary cursor-pointer"
+                    @click="copyToClipboard(entry.key)"
+                  >
+                    #{{ entry.key }}
+                    <q-tooltip>Copy Slug</q-tooltip>
+                  </span>
+                </div>
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    icon="edit"
+                    flat
+                    round
+                    dense
+                    color="primary"
+                    @click="$emit('load-entry', entry)"
+                  >
+                    <q-tooltip>Load</q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    icon="share"
+                    flat
+                    round
+                    dense
+                    color="secondary"
+                    @click="$emit('share', entry)"
+                  >
+                    <q-tooltip>Share</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+              <div class="q-mt-sm text-body2" style="word-break: break-word">
+                {{ getEntryValues(entry.value) }}
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+        <div
+          v-if="!getFeedItems('tm-editor-site').length"
+          class="q-pa-md text-caption text-grey-6"
+        >
+          No site items found.
+        </div>
+      </q-expansion-item>
+
       <q-dialog v-model="priceDialogOpen">
         <q-card style="min-width: 420px; max-width: 92vw">
           <q-card-section class="text-subtitle1"
@@ -887,6 +952,7 @@ const feedTopics = [
     icon: 'precision_manufacturing',
   },
   { label: 'Know-How Feed', topic: 'tm-editor-knowHow', icon: 'menu_book' },
+  { label: 'Site Feed', topic: 'tm-editor-site', icon: 'place' },
 ];
 
 type FeedLatest = {
